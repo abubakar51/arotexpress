@@ -45,13 +45,36 @@ export async function POST(req: NextRequest) {
       imgbbBody.append('image', imgData);
     }
 
-    // Send request to ImgBB API
+    // Send request to ImgBB API with User-Agent header (prevents cloud host IP / bot blocking like Render)
     const response = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
+      },
       body: imgbbBody
     });
 
-    const resData = await response.json();
+    const responseText = await response.text();
+    let resData: any = null;
+    try {
+      resData = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error('ImgBB non-JSON response from Render/Host:', responseText);
+      // Check if Cloudflare or ImgBB returned the HTML forbidden page
+      if (responseText.includes('forbidden') || response.status === 403) {
+        return NextResponse.json(
+          {
+            error: 'ImgBB ক্লাউড হোস্টিং রিকোয়েস্ট সাময়িক ব্লক করেছে। অনুগ্রহ করে ব্রাউজার থেকে সরাসরি ImgBB আপলোড ব্যবহার করুন অথবা ছবিটির অনলাইন লিংক ইনপুট বক্সে বসান।'
+          },
+          { status: 502 }
+        );
+      }
+      return NextResponse.json(
+        { error: `ImgBB রেসপন্স পড়তে সমস্যা হয়েছে (${response.status})` },
+        { status: 502 }
+      );
+    }
 
     if (!response.ok || !resData.success) {
       const errorMsg = resData?.error?.message || 'ImgBB তে ছবি আপলোড করতে ব্যর্থ হয়েছে';
