@@ -36,7 +36,18 @@ export default async function HomePage() {
         can instantly read all products, categories, titles, and descriptions 
         without needing to execute JavaScript!
       */}
-      <section className="sr-only" aria-label="সব ক্যাটাগরি ও মুদি পণ্য তালিকা (Server Pre-rendered)">
+      <section 
+        className="seo-crawler-content" 
+        aria-label="সব ক্যাটাগরি ও মুদি পণ্য তালিকা (Server Pre-rendered)"
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: 'auto',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden'
+        }}
+      >
         <h1>{settings?.header_title || 'মুদি বাজারের পুরো লিস্ট, এক জায়গায়।'}</h1>
         <p>{settings?.header_subtitle || 'চাল-ডাল থেকে মাছ-মসলা — আড়তের মতো দরে, ঘরে বসে অর্ডার করুন।'}</p>
         

@@ -124,8 +124,15 @@ export const initialData = {
     logo_text_bn: 'আড়ৎ এক্সপ্রেস',
     logo_text_en: 'Arot Express'
   },
-  delivery_areas: [] as DeliveryArea[],
-  delivery_riders: [] as DeliveryRider[],
+  delivery_areas: [
+    { id: 1, name: 'ধানমন্ডি ও মিরপুর', charge: 60, is_active: true },
+    { id: 2, name: 'গুলশান, বনানী ও উত্তরা', charge: 70, is_active: true },
+    { id: 3, name: 'সমগ্র ঢাকা সিটি', charge: 80, is_active: true }
+  ] as DeliveryArea[],
+  delivery_riders: [
+    { id: 1, name: 'করিম আহমেদ', phone: '01711223344', vehicle: 'মোটরসাইকেল', area: 'ধানমন্ডি, মিরপুর ও মোহাম্মদপুর', address: 'মিরপুর-১০, ঢাকা', is_active: true },
+    { id: 2, name: 'রফিকুল ইসলাম', phone: '01811223344', vehicle: 'সাইকেল', area: 'গুলশান, বনানী ও বাড্ডা', address: 'বাড্ডা, ঢাকা', is_active: true }
+  ] as DeliveryRider[],
   expenses: [] as Expense[],
   groups: [
     { key: 'staples', en: 'Pantry Staples', bn: 'নিত্যপ্রয়োজনীয়', is_active: true, sort_order: 1, icon: '' },
@@ -135,8 +142,110 @@ export const initialData = {
     { key: 'drinks', en: 'Snacks & Drinks', bn: 'নাস্তা ও পানীয়', is_active: true, sort_order: 5, icon: '' },
     { key: 'household', en: 'Household', bn: 'গৃহস্থালি', is_active: true, sort_order: 6, icon: '' }
   ] as DBGroup[],
-  categories: [] as Category[],
-  paymentMethods: [] as PaymentMethod[],
+  categories: [
+    {
+      id: 1,
+      group: 'staples',
+      en: 'Rice',
+      bn: 'চাল',
+      icon: '🌾',
+      brands: [
+        { id: 101, name: 'মিনিকেট চাল (প্রিমিয়াম)', unit: 'প্রতি কেজি', price: 72, stock: 100 },
+        { id: 102, name: 'নাজিরশাইল চাল', unit: 'প্রতি কেজি', price: 80, stock: 80 },
+        { id: 103, name: 'চিনিগুঁড়া সুগন্ধি চাল', unit: 'প্রতি কেজি', price: 140, stock: 50 },
+        { id: 104, name: 'বাসমতি চাল', unit: 'প্রতি কেজি', price: 310, stock: 40 }
+      ]
+    },
+    {
+      id: 2,
+      group: 'staples',
+      en: 'Lentils',
+      bn: 'ডাল',
+      icon: '🥣',
+      brands: [
+        { id: 105, name: 'মুগ ডাল (বাছাইকৃত)', unit: 'প্রতি কেজি', price: 135, stock: 75 },
+        { id: 106, name: 'দেশি মসুর ডাল', unit: 'প্রতি কেজি', price: 130, stock: 90 },
+        { id: 107, name: 'খেসারি ডাল', unit: 'প্রতি কেজি', price: 85, stock: 60 }
+      ]
+    },
+    {
+      id: 3,
+      group: 'staples',
+      en: 'Cooking Oil',
+      bn: 'ভোজ্য তেল',
+      icon: '🛢️',
+      brands: [
+        { id: 108, name: 'ফ্রেশ সয়াবিন তেল', unit: '৫ লিটার বোতল', price: 890, stock: 35 },
+        { id: 109, name: 'তীর সয়াবিন তেল', unit: '১ লিটার', price: 190, stock: 80 },
+        { id: 110, name: 'সুরেশ খাঁটি সরিষার তেল', unit: '১ লিটার', price: 260, stock: 50 }
+      ]
+    },
+    {
+      id: 4,
+      group: 'staples',
+      en: 'Flour & Atta',
+      bn: 'আটা ও ময়দা',
+      icon: '🌾',
+      brands: [
+        { id: 111, name: 'তীর প্যাকেজড আটা', unit: '২ কেজি ব্যাগ', price: 115, stock: 60 },
+        { id: 112, name: 'ফ্রেশ ময়দা', unit: '২ কেজি ব্যাগ', price: 135, stock: 50 }
+      ]
+    },
+    {
+      id: 5,
+      group: 'fresh',
+      en: 'Onion & Garlic',
+      bn: 'পেঁয়াজ ও রসুন',
+      icon: '🧅',
+      brands: [
+        { id: 113, name: 'দেশি সেরা পেঁয়াজ', unit: 'প্রতি কেজি', price: 55, stock: 120 },
+        { id: 114, name: 'ভারতীয় পেঁয়াজ', unit: 'প্রতি কেজি', price: 50, stock: 100 },
+        { id: 115, name: 'দেশি রসুন', unit: 'প্রতি কেজি', price: 180, stock: 60 },
+        { id: 116, name: 'আদা (চীন)', unit: 'প্রতি কেজি', price: 210, stock: 45 }
+      ]
+    },
+    {
+      id: 6,
+      group: 'fresh',
+      en: 'Potatoes',
+      bn: 'আলু',
+      icon: '🥔',
+      brands: [
+        { id: 117, name: 'বগুড়ার লাল গোল আলু', unit: 'প্রতি কেজি', price: 35, stock: 150 },
+        { id: 118, name: 'ডায়মন্ড সাদা আলু', unit: 'প্রতি কেজি', price: 30, stock: 120 }
+      ]
+    },
+    {
+      id: 7,
+      group: 'spices',
+      en: 'Spices & Masala',
+      bn: 'গুঁড়া মসলা ও গোটা মসলা',
+      icon: '🌶️',
+      brands: [
+        { id: 119, name: 'রাধুনী হলুদ গুঁড়া', unit: '২০০ গ্রাম', price: 85, stock: 80 },
+        { id: 120, name: 'রাধুনী মরিচ গুঁড়া', unit: '২০০ গ্রাম', price: 95, stock: 80 },
+        { id: 121, name: 'জিরা (প্রিমিয়াম)', unit: '১০০ গ্রাম', price: 90, stock: 50 }
+      ]
+    },
+    {
+      id: 8,
+      group: 'breakfast',
+      en: 'Dairy & Eggs',
+      bn: 'দুধ ও ডিম',
+      icon: '🥛',
+      brands: [
+        { id: 122, name: 'ফার্মের লাল ডিম', unit: '১ ডজন (১২টি)', price: 145, stock: 100 },
+        { id: 123, name: 'মিল্ক ভিটা তরল দুধ', unit: '১ লিটার', price: 90, stock: 40 },
+        { id: 124, name: 'ডানো গুঁড়া দুধ', unit: '৫০০ গ্রাম', price: 440, stock: 30 }
+      ]
+    }
+  ] as Category[],
+  paymentMethods: [
+    { id: 1, code: 'cod', name_bn: 'ক্যাশ অন ডেলিভারি', name_en: 'Cash on Delivery', number: '', instructions_bn: 'পণ্য হাতে পেয়ে মূল্য পরিশোধ করুন।', is_active: true },
+    { id: 2, code: 'bkash', name_bn: 'বিকাশ', name_en: 'bKash', number: '01711000000', instructions_bn: 'বিকাশ পার্সোনাল/মার্চেন্ট নম্বরে সেন্ড মানি করুন।', is_active: true },
+    { id: 3, code: 'nagad', name_bn: 'নগদ', name_en: 'Nagad', number: '01811000000', instructions_bn: 'নগদ নম্বরে সেন্ড মানি করুন।', is_active: true },
+    { id: 4, code: 'rocket', name_bn: 'রকেট', name_en: 'Rocket', number: '01911000000', instructions_bn: 'রকেট নম্বরে সেন্ড মানি করুন।', is_active: true }
+  ] as PaymentMethod[],
   users: [] as DBUser[],
   admins: [
     {

@@ -77,7 +77,18 @@ export default async function CategoryDetailPage({
         Instant crawlability for Gemini, Google, and bots
       */}
       {category && (
-        <section className="sr-only" aria-label={`${category.bn} পণ্য তালিকা`}>
+        <section 
+          className="seo-crawler-content" 
+          aria-label={`${category.bn} পণ্য তালিকা`}
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: 'auto',
+            width: '1px',
+            height: '1px',
+            overflow: 'hidden'
+          }}
+        >
           <h1>{category.bn} - {category.en}</h1>
           {category.brands && category.brands.length > 0 && (
             <ul>

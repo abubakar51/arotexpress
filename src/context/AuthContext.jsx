@@ -44,7 +44,10 @@ export function AuthProvider({ children }) {
   });
   const loading = customerLoading || adminLoading;
 
-  const [isChecking, setIsChecking] = useState(true);
+  const [isChecking, setIsChecking] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !!localStorage.getItem('arot_customer_token') || !!localStorage.getItem('arot_admin_token');
+  });
 
   useEffect(() => {
     if (!customerLoading && !adminLoading) {

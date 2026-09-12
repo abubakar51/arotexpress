@@ -83,6 +83,44 @@ export default async function RootLayout({
     // fallback gracefully if database initialization encounters any transient issue
   }
 
+  // Generate Schema.org JSON-LD structured data for Google, Gemini and AI web crawlers
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://arot-express.com';
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'OnlineStore',
+    name: initialData?.settings?.site_name || 'Arot Express',
+    description: initialData?.settings?.header_subtitle || 'মুদি বাজারের পুরো লিস্ট, এক জায়গায়। তাজা পাইকারি ও খুচরা মুদি বাজার।',
+    url: siteUrl,
+    currenciesAccepted: 'BDT',
+    paymentAccepted: 'Cash on Delivery, bKash, Nagad, Rocket',
+    priceRange: '৳৳',
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'মুদি পণ্যের তালিকা (Grocery Catalog)',
+      itemListElement: (initialData?.categories || []).map((cat: any, idx: number) => ({
+        '@type': 'OfferCatalog',
+        name: `${cat.bn} (${cat.en})`,
+        itemListOrder: 'https://schema.org/ItemListOrderAscending',
+        numberOfItems: (cat.brands || []).length,
+        itemListElement: (cat.brands || []).map((b: any, bIdx: number) => ({
+          '@type': 'Offer',
+          itemOffered: {
+            '@type': 'Product',
+            name: b.name,
+            category: cat.bn,
+            offers: {
+              '@type': 'Offer',
+              price: b.price,
+              priceCurrency: 'BDT',
+              availability: (b.stock === undefined || b.stock > 0) ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+              unitText: b.unit
+            }
+          }
+        }))
+      }))
+    }
+  };
+
   return (
     <html lang="bn" data-scroll-behavior="smooth">
       <head>
@@ -91,6 +129,10 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body>
         <div id="root">
