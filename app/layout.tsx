@@ -60,7 +60,12 @@ export default async function RootLayout({
 
   try {
     const DBManager = await getDB();
-    const settings: any = DBManager.getSettings() || {};
+    const rawSettings: any = DBManager.getSettings() || {};
+    const settings: any = { ...rawSettings };
+    // Strictly remove private API keys and verification secrets from SSR client payload
+    delete settings.payment_verify_api_key;
+    delete settings.payment_verify_api_url;
+
     if (settings.logo_type === 'image' && settings.logo_image_url?.trim()) {
       faviconUrl = settings.logo_image_url.trim();
     }
@@ -84,7 +89,7 @@ export default async function RootLayout({
   }
 
   // Generate Schema.org JSON-LD structured data for Google, Gemini and AI web crawlers
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://arot-express.com';
+  const siteUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://arot-express.com';
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'OnlineStore',
