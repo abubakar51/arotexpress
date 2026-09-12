@@ -2643,16 +2643,6 @@ export default function AdminPanel({ onNavigateHome }) {
                             onChange={(e) => setNewPayment({ ...newPayment, number: e.target.value })}
                           />
                         </div>
-                        <div className="field">
-                          <label>নির্দেশনা (Instructions)</label>
-                          <textarea
-                            placeholder="Send money করুন এবং TrxID দিন..."
-                            value={newPayment.instructions_bn}
-                            onChange={(e) => setNewPayment({ ...newPayment, instructions_bn: e.target.value })}
-                            rows={2}
-                            style={{ width: '100%', padding: '10px', border: '1.5px solid var(--rule)', borderRadius: 'var(--radius-md)', background: '#F8FAF9', fontSize: '14px', resize: 'vertical' }}
-                          />
-                        </div>
                         <div className="field" style={{ marginTop: '12px' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                             <input
@@ -2694,7 +2684,6 @@ export default function AdminPanel({ onNavigateHome }) {
                     <th>পদ্ধতি</th>
                     <th>কোড</th>
                     <th>অ্যাকাউন্ট নম্বর</th>
-                    <th>নির্দেশনা</th>
                     <th>সক্রিয় স্ট্যাটাস</th>
                     <th>অ্যাকশন</th>
                   </tr>
@@ -2705,7 +2694,6 @@ export default function AdminPanel({ onNavigateHome }) {
                       <td><strong>{p.name_bn}</strong></td>
                       <td className="mono">{p.code}</td>
                       <td className="mono">{p.number || '—'}</td>
-                      <td style={{ fontSize: '12px' }}>{p.instructions_bn}</td>
                       <td>
                         <button
                           type="button"
