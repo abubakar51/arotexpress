@@ -117,7 +117,12 @@ export const initialData = {
     default_delivery_fee: 60,
     payment_verify_enabled: false,
     payment_verify_api_url: '',
-    payment_verify_api_key: ''
+    payment_verify_api_key: '',
+    banner_url: '',
+    logo_type: 'text',
+    logo_image_url: '',
+    logo_text_bn: 'আড়ৎ এক্সপ্রেস',
+    logo_text_en: 'Arot Express'
   },
   delivery_areas: [] as DeliveryArea[],
   delivery_riders: [] as DeliveryRider[],

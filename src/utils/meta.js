@@ -23,23 +23,33 @@ export function updateAppMeta(settings) {
   // Explicitly check for banner_url, fallback to logo if banner is not provided
   const bannerUrl = settings.banner_url?.trim() || settings.logo_image_url?.trim() || '';
 
-  const setMetaContent = (id, content) => {
-    const el = document.getElementById(id);
-    if (el) el.setAttribute('content', content);
+  const setMetaContent = (nameOrProperty, content) => {
+    if (!content) return;
+    let el = document.querySelector(`meta[property="${nameOrProperty}"]`) || 
+             document.querySelector(`meta[name="${nameOrProperty}"]`) ||
+             document.getElementById(nameOrProperty);
+    if (!el) {
+      el = document.createElement('meta');
+      if (nameOrProperty.startsWith('og:')) {
+        el.setAttribute('property', nameOrProperty);
+      } else {
+        el.setAttribute('name', nameOrProperty);
+      }
+      document.head.appendChild(el);
+    }
+    el.setAttribute('content', content);
   };
 
-  setMetaContent('meta-desc', ogDesc);
-  
-  // Update og: and twitter: text tags explicitly
-  setMetaContent('og-title', ogTitle);
-  setMetaContent('og-desc', ogDesc);
-  setMetaContent('tw-title', ogTitle);
-  setMetaContent('tw-desc', ogDesc);
+  setMetaContent('description', ogDesc);
+  setMetaContent('og:title', ogTitle);
+  setMetaContent('og:description', ogDesc);
+  setMetaContent('twitter:title', ogTitle);
+  setMetaContent('twitter:description', ogDesc);
   
   // Explicitly use bannerUrl to set the og:image and twitter:image tags
   if (bannerUrl) {
-    setMetaContent('og-image', bannerUrl);
-    setMetaContent('tw-image', bannerUrl);
+    setMetaContent('og:image', bannerUrl);
+    setMetaContent('twitter:image', bannerUrl);
   }
 
   // 2. Update Favicon
