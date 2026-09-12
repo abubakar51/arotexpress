@@ -1,80 +1,45 @@
-/**
- * Uploads an image file or base64 to ImgBB.
- * Strategy:
- * 1. First tries server-side proxy (/api/upload).
- * 2. If Render cloud IP receives 403 Forbidden / Cloudflare block ("You have been forbidden to use this website"),
- *    it automatically falls back to uploading directly from the user's browser client using ImgBB API.
- *    Since the client has a real residential/mobile IP and real browser environment, ImgBB will never block it!
- */
-export async function uploadImage(fileOrData) {
+export async function uploadImage(fileOrData, optionalAdminToken = null) {
   if (!fileOrData) return null;
 
-  // If already an online URL, return directly
+  // If already an online URL (http/https), save directly without re-uploading
   if (typeof fileOrData === 'string' && (fileOrData.startsWith('http://') || fileOrData.startsWith('https://'))) {
     return fileOrData;
   }
 
-  // Attempt 1: Server-side route
-  try {
-    let body;
-    const headers = {};
-
-    if (fileOrData instanceof File || fileOrData instanceof Blob) {
-      const formData = new FormData();
-      formData.append('image', fileOrData);
-      body = formData;
-    } else if (typeof fileOrData === 'string') {
-      body = JSON.stringify({ image: fileOrData });
-      headers['Content-Type'] = 'application/json';
-    } else {
-      return null;
-    }
-
-    const res = await fetch('/api/upload', {
-      method: 'POST',
-      headers,
-      body
-    });
-
-    const data = await res.json();
-
-    if (res.ok && data.success && data.url) {
-      return data.url;
-    }
-
-    // If server failed (e.g. Render IP forbidden / cloud block)
-    const errText = data?.error || '';
-    console.warn('Server upload returned error, trying direct browser fallback:', errText);
-    
-    // Attempt 2: Direct browser client upload fallback
-    return await uploadDirectFromBrowser(fileOrData);
-  } catch (err) {
-    console.warn('Server upload exception, trying direct browser fallback:', err);
-    return await uploadDirectFromBrowser(fileOrData);
-  }
-}
-
-/**
- * Fallback: Upload directly from the user's browser client to ImgBB.
- * Bypasses Render/Cloud IP bot blocks.
- */
-async function uploadDirectFromBrowser(fileOrData) {
-  // Fetch API key from config endpoint
-  let apiKey = '';
-  try {
-    const configRes = await fetch('/api/upload/config');
-    if (configRes.ok) {
-      const configData = await configRes.json();
-      apiKey = configData.apiKey || '';
-    }
-  } catch (e) {
-    console.warn('Could not fetch upload config:', e);
+  // Get Admin token from parameters or localStorage
+  let token = optionalAdminToken;
+  if (!token && typeof window !== 'undefined') {
+    token = localStorage.getItem('arot_admin_token');
   }
 
-  if (!apiKey) {
-    throw new Error('ImgBB API Key পাওয়া যায়নি! Render Environment Variables-এ IMGBB_API যুক্ত করুন।');
+  const authHeaders = {};
+  if (token) {
+    authHeaders['Authorization'] = `Bearer ${token}`;
   }
 
+  // Step 1: Request a secure ephemeral upload ticket from the backend
+  const ticketRes = await fetch('/api/upload/ticket', {
+    method: 'POST',
+    headers: authHeaders
+  });
+
+  const ticketData = await ticketRes.json();
+  if (!ticketRes.ok || !ticketData.ticket) {
+    throw new Error(ticketData.error || 'ইমেজ আপলোড অনুমোদনে ব্যর্থ হয়েছে। অনুগ্রহ করে আবার লগইন করুন।');
+  }
+
+  // Step 2: Trade the single-use ticket in memory to get the key right before sending to ImgBB
+  const burnRes = await fetch(`/api/upload/ticket?ticket=${encodeURIComponent(ticketData.ticket)}`, {
+    headers: authHeaders
+  });
+  const burnData = await burnRes.json();
+  if (!burnRes.ok || !burnData.apiKey) {
+    throw new Error(burnData.error || 'আপলোড সেশন শেষ হয়ে গেছে। আবার চেষ্টা করুন।');
+  }
+
+  const apiKey = burnData.apiKey;
+
+  // Step 3: Direct Client-Side upload to ImgBB from user's browser
   const formData = new FormData();
 
   if (fileOrData instanceof File || fileOrData instanceof Blob) {
@@ -100,14 +65,15 @@ async function uploadDirectFromBrowser(fileOrData) {
     jsonRes = JSON.parse(resText);
   } catch (e) {
     if (resText.includes('forbidden')) {
-      throw new Error('ImgBB থেকে ব্রাউজারকেও ব্লক দেখাচ্ছে। অন্য কোনো ছবি অথবা সরাসরি অনলাইন ইমেজ লিঙ্ক ব্যবহার করুন।');
+      throw new Error('ImgBB আপনার ব্রাউজার আইপি সাময়িক ব্লক করেছে। অনুগ্রহ করে মোবাইল নেটওয়ার্ক অথবা ভিপিএন পরিবর্তন করুন অথবা সরাসরি অনলাইন ছবির লিংক বসান।');
     }
-    throw new Error(`ImgBB আপলোড ব্যর্থ হয়েছে (${response.status})`);
+    throw new Error(`ImgBB রেসপন্স পড়তে সমস্যা হয়েছে (${response.status})`);
   }
 
   if (!response.ok || !jsonRes.success) {
     throw new Error(jsonRes?.error?.message || 'ছবি আপলোড করতে ব্যর্থ হয়েছে।');
   }
 
+  // Return the permanent image URL to be saved in PostgreSQL
   return jsonRes.data?.url || jsonRes.data?.display_url;
 }
