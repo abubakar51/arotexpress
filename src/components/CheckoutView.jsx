@@ -388,14 +388,14 @@ export default function CheckoutView({
                 <div className="payment-instructions">
                   <p>
                     <strong>{currentPaymentMethod.name_bn}:</strong>{' '}
-                    আমাদের {currentPaymentMethod.name_bn} নম্বরে <strong>৳{totalAmount}</strong> Send Money করুন। এরপর নিচে আপনার নম্বর ও TrxID দিন।
+                    {currentPaymentMethod.instructions_bn}
                   </p>
                   {currentPaymentMethod.number && (
-                    <p style={{ marginTop: '5px', fontWeight: 600 }}>
+                    <p style={{ marginTop: '4px', fontWeight: 600 }}>
                       নম্বর:{' '}
-                      <strong className="mono" style={{ color: 'var(--green)' }}>
+                      <span className="mono" style={{ color: 'var(--green)' }}>
                         {currentPaymentMethod.number}
-                      </strong>
+                      </span>
                     </p>
                   )}
 

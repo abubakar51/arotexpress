@@ -93,7 +93,7 @@ export async function verifyPaymentWithRetry(
       success: false,
       verified: false,
       code: 'API_URL_MISSING',
-      message: 'পেমেন্ট ভেরিফিকেশন কনফিগার করা হয়নি।'
+      message: 'পেমেন্ট ভেরিফিকেশন API URL কনফিগার করা হয়নি।'
     };
   }
 
@@ -102,7 +102,7 @@ export async function verifyPaymentWithRetry(
       success: false,
       verified: false,
       code: 'API_KEY_MISSING',
-      message: 'পেমেন্ট ভেরিফিকেশন কনফিগার করা হয়নি।'
+      message: 'পেমেন্ট ভেরিফিকেশন API Key (x-api-key) কনফিগার করা হয়নি।'
     };
   }
 
@@ -134,6 +134,7 @@ export async function verifyPaymentWithRetry(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     attemptsMade = attempt;
     try {
+      console.log(`[PaymentVerify] Attempt ${attempt}/${MAX_ATTEMPTS} for TrxID: ${cleanTrxId}, Sender: ${cleanSender}, Amount: ${numAmount}`);
       const res = await callVerificationApi(apiUrl.trim(), apiKey.trim(), payload);
       lastResponse = res.data;
 
@@ -141,11 +142,12 @@ export async function verifyPaymentWithRetry(
 
       // 1. STRICT SUCCESS CASE: ONLY when response code is strictly "VERIFIED_SUCCESS"
       if (responseCode === 'VERIFIED_SUCCESS') {
+        console.log(`[PaymentVerify] ✅ Verified successfully with VERIFIED_SUCCESS on attempt ${attempt}:`, res.data);
         return {
           success: true,
           verified: true,
           code: 'VERIFIED_SUCCESS',
-          message: res.data.message || 'পেমেন্ট সফলভাবে হয়েছে।',
+          message: res.data.message || 'পেমেন্ট সফলভাবে যাচাই হয়েছে।',
           data: res.data.data,
           raw: res.data,
           attemptsMade
@@ -154,6 +156,7 @@ export async function verifyPaymentWithRetry(
 
       // 2. Fatal Rejection: ALREADY_VERIFIED (under NO circumstances can this place an order)
       if (responseCode.toUpperCase() === 'ALREADY_VERIFIED') {
+        console.warn(`[PaymentVerify] 🚫 Transaction already verified (code: ${responseCode}):`, res.data);
         return {
           success: false,
           verified: false,
@@ -167,13 +170,14 @@ export async function verifyPaymentWithRetry(
 
       // 3. Fatal Rejection: AMOUNT_MISMATCH
       if (responseCode.toUpperCase() === 'AMOUNT_MISMATCH') {
+        console.warn(`[PaymentVerify] ⚠️ Amount mismatch (code: ${responseCode}):`, res.data);
         const exp = res.data?.data?.expectedAmount || numAmount;
         const act = res.data?.data?.actualAmount;
         return {
           success: false,
           verified: false,
           code: 'AMOUNT_MISMATCH',
-          message: `টাকার পরিমাণের অমিল! অর্ডারের মোট বিল ৳${exp}, কিন্তু লেনদেনে পাওয়া গেছে ৳${act !== undefined ? act : 'ভিন্ন পরিমাণ| ভুল টাকার পরিমান পাঠিয়ে থাকলে এডমিনের সাথে যোগাযোগ করুন'}।`,
+          message: `টাকার পরিমাণের অমিল! অর্ডারের মোট বিল ৳${exp}, কিন্তু লেনদেনে পাওয়া গেছে ৳${act !== undefined ? act : 'ভিন্ন পরিমাণ'}।`,
           data: res.data?.data,
           raw: res.data,
           attemptsMade
@@ -186,15 +190,17 @@ export async function verifyPaymentWithRetry(
           success: false,
           verified: false,
           code: 'UNAUTHORIZED_API_KEY',
-          message: 'পেমেন্ট ভেরিফিকেশন অকার্যকর বা অনুমোদনহীন।',
+          message: 'পেমেন্ট ভেরিফিকেশন API কি (x-api-key) অকার্যকর বা অনুমোদনহীন। অ্যাডমিন সেটিংস চেক করুন।',
           raw: res.data,
           attemptsMade
         };
       }
 
       // 3. Retryable condition: TRANSACTION_NOT_FOUND or temporary issue
+      console.warn(`[PaymentVerify] Attempt ${attempt} result: ${responseCode || res.status}. Retrying if attempts remain...`);
 
     } catch (netErr: any) {
+      console.warn(`[PaymentVerify] Attempt ${attempt} network error:`, netErr.message);
       lastResponse = { error: netErr.message };
     }
 

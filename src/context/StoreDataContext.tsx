@@ -95,19 +95,36 @@ interface StoreDataContextType {
 
 const StoreDataContext = createContext<StoreDataContextType | null>(null);
 
-export function StoreDataProvider({ children }: { children: React.ReactNode }) {
+export function StoreDataProvider({
+  children,
+  initialData
+}: {
+  children: React.ReactNode;
+  initialData?: {
+    groups?: any[];
+    categories?: any[];
+    settings?: any;
+    paymentMethods?: any[];
+    deliveryAreas?: any[];
+    defaultDeliveryFee?: number;
+  };
+}) {
   const initialCache = getInitialCache();
 
-  // Initialize immediately from stale cache to render instantly without layout flashes
-  const [groups, setGroups] = useState<any[]>(() => initialCache?.groups || []);
-  const [categories, setCategories] = useState<any[]>(() => initialCache?.categories || []);
-  const [settings, setSettings] = useState<any>(() => initialCache?.settings || null);
-  const [paymentMethods, setPaymentMethods] = useState<any[]>(() => initialCache?.paymentMethods || []);
-  const [deliveryAreas, setDeliveryAreas] = useState<any[]>(() => initialCache?.deliveryAreas || []);
-  const [defaultDeliveryFee, setDefaultDeliveryFee] = useState<number>(() => initialCache?.defaultDeliveryFee ?? 60);
+  // Initialize from SSR initialData first (for instant server-side hydration & AI/SEO bots),
+  // then fallback to client memory/storage cache
+  const [groups, setGroups] = useState<any[]>(() => initialData?.groups || initialCache?.groups || []);
+  const [categories, setCategories] = useState<any[]>(() => initialData?.categories || initialCache?.categories || []);
+  const [settings, setSettings] = useState<any>(() => initialData?.settings || initialCache?.settings || null);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>(() => initialData?.paymentMethods || initialCache?.paymentMethods || []);
+  const [deliveryAreas, setDeliveryAreas] = useState<any[]>(() => initialData?.deliveryAreas || initialCache?.deliveryAreas || []);
+  const [defaultDeliveryFee, setDefaultDeliveryFee] = useState<number>(() => initialData?.defaultDeliveryFee ?? initialCache?.defaultDeliveryFee ?? 60);
 
-  // If we already have cached categories, loading is immediately false
-  const [loading, setLoading] = useState<boolean>(() => !initialCache || !initialCache.categories?.length);
+  // If we already have categories from SSR or cache, loading is immediately false
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (initialData?.categories && initialData.categories.length > 0) return false;
+    return !initialCache || !initialCache.categories?.length;
+  });
   const [isRevalidating, setIsRevalidating] = useState<boolean>(false);
   const [activeGroupTab, setActiveGroupTab] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');

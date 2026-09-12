@@ -1,3 +1,19 @@
+/**
+ * Uploads an image file or base64 directly from the client's browser to ImgBB.
+ * 
+ * Why Client-side Direct:
+ * 1. Cloud servers (like Render/AWS/GCP IPs) are blocked by ImgBB Cloudflare WAF with:
+ *    "You have been forbidden to use this website".
+ * 2. Uploading directly from the client browser uses the user's real residential/mobile IP,
+ *    bypassing cloud IP bans completely.
+ * 
+ * How API Key is Kept Hidden:
+ * - We never expose the raw API key publicly in the frontend bundle or client HTML.
+ * - An authenticated admin calls /api/upload/ticket (guarded by admin JWT).
+ * - The server generates a single-use, 60-second ephemeral ticket.
+ * - The client trades the ticket in-memory right at the moment of upload to send the payload to ImgBB.
+ * - Once uploaded, only the permanent image URL (https://i.ibb.co/...) is saved to the database.
+ */
 export async function uploadImage(fileOrData, optionalAdminToken = null) {
   if (!fileOrData) return null;
 

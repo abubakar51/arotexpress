@@ -1,90 +1,77 @@
-"use client";
-import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion } from 'motion/react';
-import Hero from '@/src/components/Hero.jsx';
-import CategoryGrid from '@/src/components/CategoryGrid.jsx';
-import StoreLayout from '@/app/StoreLayout';
-import { useStoreData } from '@/src/context/StoreDataContext';
+import React from 'react';
+import HomeClientView from '@/src/components/HomeClientView';
+import { getDB } from './lib/db';
+import { toBengaliNumber } from '@/src/utils/bengali';
 
-export default function HomePage() {
-  const router = useRouter();
-  const {
-    settings,
-    activeGroups,
-    activeCategories,
-    searchQuery,
-    loading,
-    handleScrollToGroup,
-    setActiveGroupTab,
-    fetchData
-  } = useStoreData();
+// Force dynamic so any update in PostgreSQL or admin panel reflects immediately on server rendering
+export const dynamic = 'force-dynamic';
 
-  useEffect(() => {
-    fetchData(false);
-  }, [fetchData]);
+export default async function HomePage() {
+  let groups: any[] = [];
+  let categories: any[] = [];
+  let settings: any = {};
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const sections = document.querySelectorAll('.group-section');
-      let currentId = '';
-      const header = document.querySelector('header');
-      const headerOffset = (header ? header.offsetHeight : 110) + 40;
+  try {
+    const DBManager = await getDB();
+    groups = DBManager.getGroups() || [];
+    categories = DBManager.getCategories() || [];
+    settings = DBManager.getSettings() || {};
+  } catch (err) {
+    console.error('SSR HomePage DB fetch error:', err);
+  }
 
-      sections.forEach((section) => {
-        const rect = section.getBoundingClientRect();
-        const sectionTop = window.scrollY + rect.top;
-        if (window.scrollY >= sectionTop - headerOffset) {
-          currentId = section.id.replace('group-', '');
-        }
-      });
-
-      if ((window.innerHeight + Math.round(window.scrollY)) >= document.body.offsetHeight - 10) {
-        if (sections.length > 0) {
-          currentId = sections[sections.length - 1].id.replace('group-', '');
-        }
-      }
-
-      if (currentId) {
-        setActiveGroupTab((prev) => (prev !== currentId ? currentId : prev));
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    setTimeout(handleScroll, 100);
-
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [activeGroups, activeCategories, searchQuery, setActiveGroupTab]);
+  // Filter active groups and active categories for server HTML pre-rendering
+  const activeGroups = groups.filter((g: any) => g.is_active !== false);
+  const activeCategories = categories.filter((c: any) => {
+    const parentGroup = groups.find((g: any) => g.key === c.group);
+    return parentGroup ? parentGroup.is_active !== false : true;
+  });
 
   return (
-    <StoreLayout>
-      <motion.div
-        key="home-view"
-        id="home-view"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.22 }}
-        style={{ width: '100%' }}
-      >
-        <Hero
-          settings={settings}
-          categories={activeCategories}
-          onExploreClick={() => {
-            const firstGroup = activeGroups[0];
-            if (firstGroup) handleScrollToGroup(firstGroup.key);
-          }}
-        />
-        <CategoryGrid
-          groups={activeGroups}
-          categories={activeCategories}
-          searchQuery={searchQuery}
-          isLoading={loading}
-          onSelectCategory={(id: any) => {
-            router.push(`/category/${id}`);
-          }}
-        />
-      </motion.div>
-    </StoreLayout>
+    <>
+      {/* 
+        1. Fully Server-Rendered Semantic Content:
+        Directly embedded into the initial HTML response from the server.
+        Search engines (Google), AI crawlers (Gemini, ChatGPT), and lightweight bots
+        can instantly read all products, categories, titles, and descriptions 
+        without needing to execute JavaScript!
+      */}
+      <section className="sr-only" aria-label="সব ক্যাটাগরি ও মুদি পণ্য তালিকা (Server Pre-rendered)">
+        <h1>{settings?.header_title || 'মুদি বাজারের পুরো লিস্ট, এক জায়গায়।'}</h1>
+        <p>{settings?.header_subtitle || 'চাল-ডাল থেকে মাছ-মসলা — আড়তের মতো দরে, ঘরে বসে অর্ডার করুন।'}</p>
+        
+        {activeGroups.map((group: any) => {
+          const groupCats = activeCategories.filter((cat: any) => cat.group === group.key);
+          if (groupCats.length === 0) return null;
+
+          return (
+            <article key={`ssr-grp-${group.key}`}>
+              <h2>{group.bn} ({group.en})</h2>
+              <ul>
+                {groupCats.map((cat: any) => (
+                  <li key={`ssr-cat-${cat.id}`}>
+                    <h3>
+                      <a href={`/category/${cat.id}`}>{cat.bn} - {cat.en}</a>
+                    </h3>
+                    {cat.brands && cat.brands.length > 0 && (
+                      <p>
+                        ব্র্যান্ড/পণ্য: {cat.brands.map((b: any) => `${b.name} (৳${toBengaliNumber(b.price)} / ${b.unit})`).join(', ')}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          );
+        })}
+      </section>
+
+      {/* 
+        2. Dynamic Client Component:
+        Handles the interactive animated user interface, cart drawer, live search, 
+        smooth scrolling, and real-time client hydration seamlessly.
+      */}
+      <HomeClientView />
+    </>
   );
 }

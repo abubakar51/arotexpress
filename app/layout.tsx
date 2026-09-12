@@ -56,6 +56,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   let faviconUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23006C4C'/%3E%3Ctext x='32' y='35' text-anchor='middle' dominant-baseline='central' fill='%23FFFFFF' font-family='sans-serif' font-weight='900' font-size='34'%3EAE%3C/text%3E%3C/svg%3E";
+  let initialData: any = null;
 
   try {
     const DBManager = await getDB();
@@ -63,8 +64,23 @@ export default async function RootLayout({
     if (settings.logo_type === 'image' && settings.logo_image_url?.trim()) {
       faviconUrl = settings.logo_image_url.trim();
     }
+
+    // Prepare complete initial state for Server-Side Rendering (SSR)
+    const rawGroups = DBManager.getGroups() || [];
+    const rawCategories = DBManager.getCategories() || [];
+    const rawPaymentMethods = DBManager.getPaymentMethods() || [];
+    const rawDeliveryAreas = DBManager.getDeliveryAreas() || [];
+
+    initialData = {
+      groups: JSON.parse(JSON.stringify(rawGroups)),
+      categories: JSON.parse(JSON.stringify(rawCategories)),
+      settings: JSON.parse(JSON.stringify(settings)),
+      paymentMethods: JSON.parse(JSON.stringify(rawPaymentMethods)),
+      deliveryAreas: JSON.parse(JSON.stringify(rawDeliveryAreas)),
+      defaultDeliveryFee: typeof settings.default_delivery_fee === 'number' ? settings.default_delivery_fee : 60
+    };
   } catch (e) {
-    // fallback to default svg
+    // fallback gracefully if database initialization encounters any transient issue
   }
 
   return (
@@ -78,7 +94,7 @@ export default async function RootLayout({
       </head>
       <body>
         <div id="root">
-          <Providers>
+          <Providers initialData={initialData}>
             {children}
           </Providers>
         </div>
