@@ -1,0 +1,391 @@
+"use client";
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Search, Package, Truck, CheckCircle2, Clock, MapPin, Phone, PhoneCall, AlertCircle, ShoppingBag, ArrowRight, Printer, X, RefreshCw, User } from 'lucide-react';
+import { useCart } from '../context/CartContext.jsx';
+import { toBengaliNumber } from '../utils/bengali.js';
+import CustomerInvoiceModal from './CustomerInvoiceModal.jsx';
+
+export default function OrderTrackingModal({ isOpen = true, initialOrderCode = '', initialOrder = null, settings, onClose }) {
+  if (isOpen === false) return null;
+
+  const { changeQty, setIsCartOpen, showToast } = useCart();
+
+  const [orderCode, setOrderCode] = useState(initialOrderCode || (initialOrder ? initialOrder.order_code : ''));
+  const [order, setOrder] = useState(initialOrder);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [reordering, setReordering] = useState(false);
+
+  useEffect(() => {
+    if (initialOrder) {
+      setOrder(initialOrder);
+      setOrderCode(initialOrder.order_code || '');
+    } else if (initialOrderCode) {
+      setOrderCode(initialOrderCode);
+      fetchOrder(initialOrderCode);
+    }
+  }, [initialOrderCode, initialOrder]);
+
+  const fetchOrder = async (codeToFetch) => {
+    const code = (codeToFetch || orderCode || '').trim();
+    if (!code) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/orders/track/${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'অর্ডারটি খুঁজে পাওয়া যায়নি');
+      }
+      setOrder(data);
+    } catch (err) {
+      setError(err.message || 'অর্ডার ট্র্যাক করতে ত্রুটি হয়েছে');
+      setOrder(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async (e) => {
+    if (e) e.preventDefault();
+    if (!orderCode.trim()) {
+      setError('দয়া করে অর্ডার কোড লিখুন (যেমন: AE-123456)');
+      return;
+    }
+    fetchOrder(orderCode);
+  };
+
+  // 1-Click Reorder Function
+  const handleReorder = () => {
+    if (!order) return;
+    const items = Array.isArray(order.items_json)
+      ? order.items_json
+      : (typeof order.items_json === 'string' ? JSON.parse(order.items_json) : []);
+
+    if (items.length === 0) {
+      showToast('অর্ডারে কোনো পণ্য পাওয়া যায়নি');
+      return;
+    }
+
+    setReordering(true);
+    items.forEach((it) => {
+      const key = `${it.catId || it.catKey || 'cat'}_${it.brand}`;
+      const itemMeta = {
+        catId: it.catId,
+        catKey: it.catKey || 'staples',
+        catBn: it.catBn,
+        productId: it.productId || it.product_id || it.brandId || it.id || null,
+        brandId: it.productId || it.product_id || it.brandId || it.id || null,
+        brand: it.brand,
+        unit: it.unit,
+        price: it.price,
+        image: it.image || ''
+      };
+      changeQty(key, it.qty || 1, itemMeta);
+    });
+
+    showToast('সকল পণ্য সফলভাবে কার্টে যোগ করা হয়েছে!');
+    setIsCartOpen(true);
+    if (onClose) onClose();
+  };
+
+  const getStepIndex = (status) => {
+    if (status === 'pending' || status === 'পেন্ডিং') return 0;
+    if (status === 'processing' || status === 'প্রসেসিং') return 1;
+    if (status === 'shipped' || status === 'পাঠানো হয়েছে') return 2;
+    if (status === 'delivered' || status === 'ডেলিভার্ড' || status === 'সম্পন্ন') return 3;
+    if (status === 'cancelled' || status === 'বাতিল') return -1;
+    return 0;
+  };
+
+  const currentStep = order ? getStepIndex(order.status) : 0;
+  const isCancelled = order && (order.status === 'cancelled' || order.status === 'বাতিল');
+
+  const steps = [
+    { title: 'অর্ডার গৃহীত', desc: 'অর্ডার নিশ্চিত হয়েছে', icon: Clock },
+    { title: 'প্রসেসিং চলছে', desc: 'প্যাকেজিং ও প্রস্তুতি', icon: Package },
+    { title: 'অন-ওয়ে (Shipped)', desc: 'ডেলিভারিম্যানের কাছে হস্তান্তর', icon: Truck },
+    { title: 'ডেলিভার্ড সম্পন্ন', desc: 'সফলভাবে হস্তান্তর', icon: CheckCircle2 }
+  ];
+
+  return (
+    <>
+      <div className="admin-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}>
+        <motion.div
+          className="admin-modal-card"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          style={{ maxWidth: '640px', width: '95%' }}
+        >
+          {/* Header */}
+          <div className="admin-modal-header">
+            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
+              <Truck size={19} color="var(--green-dim)" />
+              <span>লাইভ অর্ডার ট্র্যাকিং ও ডেলিভারি স্ট্যাটাস</span>
+            </h4>
+            <button
+              type="button"
+              className="close-modal-btn"
+              onClick={onClose}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="admin-modal-body" style={{ padding: '20px' }}>
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--ink)', marginBottom: '6px' }}>
+                অর্ডার কোড দিয়ে খুঁজুন:
+              </label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                  <input
+                    type="text"
+                    placeholder="যেমন: AE-123456"
+                    value={orderCode}
+                    onChange={(e) => setOrderCode(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px 10px 36px', fontSize: '14px', borderRadius: 'var(--radius-pill)', border: '1.5px solid var(--rule)', background: '#F8FAF9' }}
+                  />
+                </div>
+                <motion.button
+                  type="submit"
+                  className="admin-btn"
+                  disabled={loading}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', borderRadius: 'var(--radius-pill)' }}
+                >
+                  {loading ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+                  <span>ট্র্যাক করুন</span>
+                </motion.button>
+              </div>
+            </form>
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{ background: '#ffeded', border: '1px solid #FECDD3', color: 'var(--danger)', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '13px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </motion.div>
+            )}
+
+            {order && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                {/* Order Summary Header Box */}
+                <div style={{ background: '#F8FAF9', padding: '16px 18px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--rule)', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Order Code</div>
+                      <div className="mono" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)' }}>
+                        {order.order_code || `#ORD-${order.id}`}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
+                        তারিখ: {new Date(order.created_at || Date.now()).toLocaleDateString('bn-BD')} · <span className="mono">{new Date(order.created_at || Date.now()).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>সর্বমোট বিল</div>
+                      <div className="mono" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--green-dim)' }}>
+                        ৳{toBengaliNumber(order.total_amount)}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--ink)' }}>
+                        পেমেন্ট: <strong>{order.payment_method === 'cod' ? 'ক্যাশ অন ডেলিভারি' : order.payment_method}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tracking Stepper */}
+                <div style={{ margin: '24px 0', padding: '0 8px' }}>
+                  <h5 style={{ margin: '0 0 16px 0', fontSize: '14.5px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Truck size={16} />
+                    <span>ডেলিভারি অগ্রগতি (Live Timeline)</span>
+                  </h5>
+
+                  {isCancelled ? (
+                    <div style={{ background: '#ffeded', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid #FECDD3', textAlign: 'center', color: 'var(--danger)' }}>
+                      <strong>অর্ডারটি বাতিল করা হয়েছে</strong>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', position: 'relative' }}>
+                      {steps.map((step, idx) => {
+                        const IconComponent = step.icon;
+                        const isDone = idx <= currentStep;
+                        const isCurrent = idx === currentStep;
+
+                        return (
+                          <div key={idx} style={{ textAlign: 'center', position: 'relative' }}>
+                            <div
+                              style={{
+                                width: '38px',
+                                height: '38px',
+                                borderRadius: '50%',
+                                background: isDone ? 'var(--green)' : '#F1F5F3',
+                                color: isDone ? '#fff' : 'var(--muted)',
+                                border: isCurrent ? '2px solid var(--green)' : (isDone ? 'none' : '1px solid var(--rule)'),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 8px auto',
+                                transition: 'all 0.3s ease',
+                                boxShadow: isCurrent ? '0 0 0 4px rgba(0, 108, 76, 0.15)' : 'none'
+                              }}
+                            >
+                              <IconComponent size={18} />
+                            </div>
+                            <div style={{ fontSize: '12.5px', fontWeight: isCurrent ? 700 : (isDone ? 600 : 400), color: isDone ? 'var(--ink)' : 'var(--muted)', lineHeight: 1.3 }}>
+                              {step.title}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px', display: 'none' }}>
+                              {step.desc}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Delivery Rider Notification Card (If Shipped or Rider Assigned) */}
+                {order.delivery_rider_name && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                      background: 'var(--md-primary-container)',
+                      border: '1px solid #BBF7D0',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '14px 16px',
+                      margin: '20px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Truck size={20} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '11.5px', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>
+                          🛵 আপনার অর্ডারের ডেলিভারিম্যান
+                        </div>
+                        <div style={{ fontSize: '15px', fontWeight: 800, color: '#14532d' }}>
+                          {order.delivery_rider_name}
+                        </div>
+                        <div style={{ fontSize: '12.5px', color: '#166534', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                          <span>বাহন: <strong>{order.delivery_rider_vehicle || 'মোটরসাইকেল'}</strong></span>
+                          {order.delivery_rider_phone && (
+                            <span className="mono font-bold">({order.delivery_rider_phone})</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {order.delivery_rider_phone && (
+                      <motion.a
+                        href={`tel:${order.delivery_rider_phone}`}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        style={{
+                          background: 'var(--green)',
+                          color: '#fff',
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-pill)',
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        <PhoneCall size={14} />
+                        <span>রাইডারকে কল দিন</span>
+                      </motion.a>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Delivery Address & Customer Info */}
+                <div style={{ background: '#F8FAF9', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--rule)', marginBottom: '16px', fontSize: '13px' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: '4px' }}>
+                    গ্রাহক: {order.customer_name} ({order.customer_phone})
+                  </div>
+                  <div style={{ color: 'var(--muted)', lineHeight: 1.4 }}>
+                    <strong>ডেলিভারি ঠিকানা:</strong> {order.delivery_address} {order.delivery_area ? `(${order.delivery_area})` : ''}
+                  </div>
+                </div>
+
+                {/* Action Buttons: 1-Click Reorder & Cash Memo Invoice */}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed var(--rule)' }}>
+                  <motion.button
+                    type="button"
+                    className="admin-btn"
+                    onClick={handleReorder}
+                    disabled={reordering}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{ flex: '1 1 200px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 16px', fontSize: '13.5px', borderRadius: 'var(--radius-pill)' }}
+                  >
+                    <ShoppingBag size={16} />
+                    <span>এক ক্লিকে পুনরায় অর্ডার (Re-order)</span>
+                  </motion.button>
+
+                  <motion.button
+                    type="button"
+                    className="admin-btn secondary"
+                    onClick={() => setShowInvoice(true)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    style={{ flex: '1 1 180px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 16px', fontSize: '13.5px', borderRadius: 'var(--radius-pill)' }}
+                  >
+                    <Printer size={16} />
+                    <span>ক্যাশ মেমো / ইনভয়েস দেখুন</span>
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+
+          <div className="admin-modal-footer" style={{ background: 'var(--cream-card)' }}>
+            <button
+              type="button"
+              className="admin-btn secondary"
+              onClick={onClose}
+              style={{ width: '100%' }}
+            >
+              বন্ধ করুন
+            </button>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Invoice / Cash Memo Popup */}
+      <AnimatePresence>
+        {showInvoice && order && (
+          <CustomerInvoiceModal
+            order={order}
+            settings={settings}
+            onClose={() => setShowInvoice(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
