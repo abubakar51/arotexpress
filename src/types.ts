@@ -3,7 +3,6 @@ export interface SettingData {
   header_subtitle: string;
   footer_text: string;
   footer_address: string;
-  ledger_items: { name: string; price: string }[];
 }
 
 export interface Brand {
@@ -13,7 +12,6 @@ export interface Brand {
   price: number;
   cost_price?: number;
   image?: string;
-  weekly_prices?: Record<string, number>;
   stock?: number;
   force_stock_out?: boolean;
 }

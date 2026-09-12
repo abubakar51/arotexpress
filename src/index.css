@@ -629,91 +629,6 @@ header, .main-app-header {
   background: var(--green-dim);
 }
 
-/* Rate Card */
-.ledger-card {
-  background: #FFFFFF;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-xl);
-  padding: 22px 24px;
-  box-shadow: var(--shadow-lg);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  position: relative;
-}
-
-.ledger-card:hover {
-  box-shadow: var(--shadow-xl);
-}
-
-.rate-days-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--rule);
-}
-
-.rate-day-btn {
-  background: #F1F5F3;
-  border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  padding: 5px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-
-.rate-day-btn:hover {
-  background: #E2E8F0;
-}
-
-.rate-day-btn.active {
-  background: var(--green);
-  color: #FFFFFF;
-  border-color: var(--green);
-  box-shadow: var(--shadow-green);
-}
-
-.rate-items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.rate-item-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 6px;
-  border-radius: var(--radius-sm);
-  transition: background 0.12s;
-  border-bottom: 1px solid #F1F5F3;
-}
-
-.rate-item-row:hover {
-  background: #F8FAF9;
-}
-
-.rate-item-row:last-child {
-  border-bottom: none;
-}
-
-.rate-item-name {
-  font-size: 15px;
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.rate-item-price {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--green);
-  white-space: nowrap;
-}
-
 /* ================================================= */
 /* CATEGORY SECTIONS & BENTO GRID (M3 CARDS)         */
 /* ================================================= */
@@ -1291,7 +1206,7 @@ header, .main-app-header {
   padding: 11px 14px;
   font-size: 14.5px;
   font-weight: 500;
-  background: #FFFFFF;
+  background: #F8FAF9;
   color: var(--ink);
   transition: all 0.2s var(--ease);
   outline: none;

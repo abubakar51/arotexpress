@@ -24,7 +24,6 @@ export interface CategoryBrand {
   price: number;
   cost_price?: number;
   image?: string;
-  weekly_prices?: Record<string, number>;
   stock?: number;
   force_stock_out?: boolean;
 }
@@ -118,8 +117,7 @@ export const initialData = {
     default_delivery_fee: 60,
     payment_verify_enabled: false,
     payment_verify_api_url: '',
-    payment_verify_api_key: '',
-    featured_products: [] as { category_id: number; brand_name: string }[]
+    payment_verify_api_key: ''
   },
   delivery_areas: [] as DeliveryArea[],
   delivery_riders: [] as DeliveryRider[],
@@ -222,15 +220,16 @@ export class DBManager {
           unit VARCHAR(100) NOT NULL,
           price NUMERIC(10, 2) NOT NULL,
           image_url TEXT,
-          weekly_prices JSONB,
           stock INT DEFAULT 100,
           force_stock_out BOOLEAN DEFAULT FALSE
         );
 
-        ALTER TABLE product_brands ADD COLUMN IF NOT EXISTS weekly_prices JSONB;
+        ALTER TABLE product_brands DROP COLUMN IF EXISTS weekly_prices;
         ALTER TABLE product_brands ADD COLUMN IF NOT EXISTS stock INT DEFAULT 100;
         ALTER TABLE product_brands ADD COLUMN IF NOT EXISTS force_stock_out BOOLEAN DEFAULT FALSE;
         ALTER TABLE product_brands ADD COLUMN IF NOT EXISTS cost_price NUMERIC(10, 2) DEFAULT 0;
+        DROP TABLE IF EXISTS weekly_prices, daily_prices, price_snapshots, daily_price_history CASCADE;
+        DELETE FROM site_settings WHERE key = 'featured_products';
 
         -- Alter existing columns to avoid value too long error for categories
         ALTER TABLE categories ALTER COLUMN icon TYPE TEXT;
@@ -378,7 +377,6 @@ export class DBManager {
             price: parseFloat(b.price) || 0,
             cost_price: parseFloat(b.cost_price) || 0,
             image: b.image_url || '',
-            weekly_prices: typeof b.weekly_prices === 'string' ? JSON.parse(b.weekly_prices) : b.weekly_prices,
             stock: b.stock !== undefined && b.stock !== null ? parseInt(b.stock) : 100,
             force_stock_out: b.force_stock_out || false
           });
@@ -393,7 +391,7 @@ export class DBManager {
           brands: brandMap[c.id] || []
         }));
       } else {
-        // Seed initial categories with weekly prices
+        // Seed initial categories
         const initialSeedCategories = [
           {
             id: 1,
@@ -402,9 +400,9 @@ export class DBManager {
             bn: 'চাল',
             icon: '🌾',
             brands: [
-              { name: 'মিনিকেট', unit: 'প্রতি কেজি', price: 72, weekly_prices: { sat: 72, sun: 73, mon: 72, tue: 74, wed: 72, thu: 75, fri: 72 } },
-              { name: 'নাজিরশাইল', unit: 'প্রতি কেজি', price: 80, weekly_prices: { sat: 80, sun: 82, mon: 80, tue: 81, wed: 80, thu: 82, fri: 80 } },
-              { name: 'বাসমতি চাল', unit: 'প্রতি কেজি', price: 310, weekly_prices: { sat: 310, sun: 310, mon: 310, tue: 315, wed: 310, thu: 310, fri: 310 } }
+              { name: 'মিনিকেট', unit: 'প্রতি কেজি', price: 72 },
+              { name: 'নাজিরশাইল', unit: 'প্রতি কেজি', price: 80 },
+              { name: 'বাসমতি চাল', unit: 'প্রতি কেজি', price: 310 }
             ]
           },
           {
@@ -414,9 +412,9 @@ export class DBManager {
             bn: 'ডাল',
             icon: '🥣',
             brands: [
-              { name: 'মুগ ডাল', unit: 'প্রতি কেজি', price: 135, weekly_prices: { sat: 135, sun: 138, mon: 135, tue: 136, wed: 135, thu: 140, fri: 135 } },
-              { name: 'মসুর ডাল (দেশি)', unit: 'প্রতি কেজি', price: 130, weekly_prices: { sat: 130, sun: 132, mon: 130, tue: 130, wed: 130, thu: 135, fri: 130 } },
-              { name: 'খেসারি ডাল', unit: 'প্রতি কেজি', price: 85, weekly_prices: { sat: 85, sun: 85, mon: 85, tue: 88, wed: 85, thu: 85, fri: 85 } }
+              { name: 'মুগ ডাল', unit: 'প্রতি কেজি', price: 135 },
+              { name: 'মসুর ডাল (দেশি)', unit: 'প্রতি কেজি', price: 130 },
+              { name: 'খেসারি ডাল', unit: 'প্রতি কেজি', price: 85 }
             ]
           },
           {
@@ -426,9 +424,9 @@ export class DBManager {
             bn: 'ভোজ্য তেল',
             icon: '🛢️',
             brands: [
-              { name: 'ফ্রেশ সয়াবিন তেল', unit: '৫ লিটার বোতল', price: 890, weekly_prices: { sat: 890, sun: 895, mon: 890, tue: 885, wed: 890, thu: 895, fri: 890 } },
-              { name: 'তীর সয়াবিন তেল', unit: '১ লিটার', price: 190, weekly_prices: { sat: 190, sun: 192, mon: 190, tue: 190, wed: 190, thu: 195, fri: 190 } },
-              { name: 'সুরেশ সরিষার তেল', unit: '১ লিটার', price: 260, weekly_prices: { sat: 260, sun: 260, mon: 260, tue: 265, wed: 260, thu: 260, fri: 260 } }
+              { name: 'ফ্রেশ সয়াবিন তেল', unit: '৫ লিটার বোতল', price: 890 },
+              { name: 'তীর সয়াবিন তেল', unit: '১ লিটার', price: 190 },
+              { name: 'সুরেশ সরিষার তেল', unit: '১ লিটার', price: 260 }
             ]
           },
           {
@@ -438,9 +436,9 @@ export class DBManager {
             bn: 'পেঁয়াজ ও রসুন',
             icon: '🧅',
             brands: [
-              { name: 'দেশি পেঁয়াজ', unit: 'প্রতি কেজি', price: 55, weekly_prices: { sat: 55, sun: 56, mon: 55, tue: 58, wed: 55, thu: 54, fri: 55 } },
-              { name: 'ভারতীয় পেঁয়াজ', unit: 'প্রতি কেজি', price: 50, weekly_prices: { sat: 50, sun: 52, mon: 50, tue: 50, wed: 50, thu: 52, fri: 50 } },
-              { name: 'দেশি রসুন', unit: 'প্রতি কেজি', price: 180, weekly_prices: { sat: 180, sun: 185, mon: 180, tue: 180, wed: 180, thu: 185, fri: 180 } }
+              { name: 'দেশি পেঁয়াজ', unit: 'প্রতি কেজি', price: 55 },
+              { name: 'ভারতীয় পেঁয়াজ', unit: 'প্রতি কেজি', price: 50 },
+              { name: 'দেশি রসুন', unit: 'প্রতি কেজি', price: 180 }
             ]
           }
         ];
@@ -455,12 +453,12 @@ export class DBManager {
           );
           for (const brand of cat.brands) {
             await client.query(
-              `INSERT INTO product_brands (category_id, name, unit, price, weekly_prices) VALUES ($1, $2, $3, $4, $5)`,
-              [cat.id, brand.name, brand.unit, brand.price, JSON.stringify(brand.weekly_prices)]
+              `INSERT INTO product_brands (category_id, name, unit, price) VALUES ($1, $2, $3, $4)`,
+              [cat.id, brand.name, brand.unit, brand.price]
             );
           }
         }
-        console.log(`🌱 Seeded ${initialSeedCategories.length} default categories with weekly prices.`);
+        console.log(`🌱 Seeded ${initialSeedCategories.length} default categories.`);
       }
 
       // Hydrate delivery areas
@@ -689,31 +687,6 @@ export class DBManager {
 
   return this.initPromise;
 }
-
-  static getTodayDayKey(): string {
-    const dayMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-    return dayMap[new Date().getDay()] || 'sat';
-  }
-
-  static snapshotDailyPrices() {
-    const todayKey = this.getTodayDayKey();
-    for (const cat of this.data.categories) {
-      if (!cat.brands) continue;
-      for (const brand of cat.brands) {
-        if (!brand.weekly_prices || typeof brand.weekly_prices !== 'object') {
-          brand.weekly_prices = {};
-        }
-        brand.weekly_prices[todayKey] = Number(brand.price) || 0;
-        if (isPgConnected) {
-          pool.query(
-            `UPDATE product_brands SET weekly_prices = $1 WHERE category_id = $2 AND name = $3`,
-            [JSON.stringify(brand.weekly_prices), cat.id, brand.name]
-          ).catch((e) => console.warn('PG sync error (daily price snapshot):', e.message));
-        }
-      }
-    }
-    console.log(`🕒 [Auto-Snapshot] Synchronized daily closing prices for ${todayKey.toUpperCase()}`);
-  }
 
   // Get Settings
   static getSettings() {
@@ -957,20 +930,6 @@ export class DBManager {
     if (cat) {
       const newBrandId = Math.floor(1000 + Math.random() * 9000);
       const priceNum = Number(brand.price) || 0;
-      const todayKey = this.getTodayDayKey();
-      
-      const defaultWeekly: Record<string, number> = {
-        sat: priceNum,
-        sun: priceNum,
-        mon: priceNum,
-        tue: priceNum,
-        wed: priceNum,
-        thu: priceNum,
-        fri: priceNum,
-        ...(brand.weekly_prices || {})
-      };
-      defaultWeekly[todayKey] = priceNum;
-
       const newBrand = {
         id: newBrandId,
         name: brand.name,
@@ -978,7 +937,6 @@ export class DBManager {
         price: priceNum,
         cost_price: brand.cost_price !== undefined ? Number(brand.cost_price) : 0,
         image: brand.image || '',
-        weekly_prices: defaultWeekly,
         stock: brand.stock !== undefined ? Number(brand.stock) : 100,
         force_stock_out: brand.force_stock_out || false
       };
@@ -993,8 +951,8 @@ export class DBManager {
           );
 
           const pbRes = await pool.query(
-            `INSERT INTO product_brands (category_id, name, unit, price, cost_price, image_url, weekly_prices, stock, force_stock_out) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-            [categoryId, newBrand.name, newBrand.unit, newBrand.price, newBrand.cost_price, newBrand.image, JSON.stringify(newBrand.weekly_prices), newBrand.stock, newBrand.force_stock_out]
+            `INSERT INTO product_brands (category_id, name, unit, price, cost_price, image_url, stock, force_stock_out) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+            [categoryId, newBrand.name, newBrand.unit, newBrand.price, newBrand.cost_price, newBrand.image, newBrand.stock, newBrand.force_stock_out]
           );
           if (pbRes.rows[0]?.id) {
             newBrand.id = pbRes.rows[0].id;
@@ -1057,39 +1015,20 @@ export class DBManager {
       if (bIdx !== -1) {
         const currentBrand = cat.brands[bIdx];
         const newPrice = updated.price !== undefined ? Number(updated.price) : currentBrand.price;
-        const todayKey = this.getTodayDayKey();
-
-        const updatedWeekly = {
-          ...(currentBrand.weekly_prices || {
-            sat: currentBrand.price,
-            sun: currentBrand.price,
-            mon: currentBrand.price,
-            tue: currentBrand.price,
-            wed: currentBrand.price,
-            thu: currentBrand.price,
-            fri: currentBrand.price
-          }),
-          ...(updated.weekly_prices || {})
-        };
-
-        if (updated.price !== undefined) {
-          updatedWeekly[todayKey] = newPrice;
-        }
 
         cat.brands[bIdx] = {
           ...currentBrand,
           ...updated,
           price: newPrice,
           cost_price: updated.cost_price !== undefined ? Number(updated.cost_price) : currentBrand.cost_price,
-          weekly_prices: updatedWeekly,
           stock: updated.stock !== undefined ? Number(updated.stock) : currentBrand.stock,
           force_stock_out: updated.force_stock_out !== undefined ? Boolean(updated.force_stock_out) : currentBrand.force_stock_out
         };
 
         if (isPgConnected) {
           pool.query(
-            `UPDATE product_brands SET name = $1, unit = $2, price = $3, cost_price = $4, image_url = $5, weekly_prices = $6, stock = $7, force_stock_out = $8 WHERE id = $9`,
-            [cat.brands[bIdx].name, cat.brands[bIdx].unit, cat.brands[bIdx].price, cat.brands[bIdx].cost_price, cat.brands[bIdx].image || '', JSON.stringify(cat.brands[bIdx].weekly_prices), cat.brands[bIdx].stock, cat.brands[bIdx].force_stock_out, productId]
+            `UPDATE product_brands SET name = $1, unit = $2, price = $3, cost_price = $4, image_url = $5, stock = $6, force_stock_out = $7 WHERE id = $8`,
+            [cat.brands[bIdx].name, cat.brands[bIdx].unit, cat.brands[bIdx].price, cat.brands[bIdx].cost_price, cat.brands[bIdx].image || '', cat.brands[bIdx].stock, cat.brands[bIdx].force_stock_out, productId]
           ).catch((e) => console.warn('PG sync error (brand update by ID):', e.message));
         }
         return cat.brands[bIdx];
@@ -1119,39 +1058,20 @@ export class DBManager {
       if (bIdx !== -1) {
         const currentBrand = cat.brands[bIdx];
         const newPrice = updated.price !== undefined ? Number(updated.price) : currentBrand.price;
-        const todayKey = this.getTodayDayKey();
-
-        const updatedWeekly = {
-          ...(currentBrand.weekly_prices || {
-            sat: currentBrand.price,
-            sun: currentBrand.price,
-            mon: currentBrand.price,
-            tue: currentBrand.price,
-            wed: currentBrand.price,
-            thu: currentBrand.price,
-            fri: currentBrand.price
-          }),
-          ...(updated.weekly_prices || {})
-        };
-
-        if (updated.price !== undefined) {
-          updatedWeekly[todayKey] = newPrice;
-        }
 
         cat.brands[bIdx] = {
           ...currentBrand,
           ...updated,
           price: newPrice,
           cost_price: updated.cost_price !== undefined ? Number(updated.cost_price) : currentBrand.cost_price,
-          weekly_prices: updatedWeekly,
           stock: updated.stock !== undefined ? Number(updated.stock) : currentBrand.stock,
           force_stock_out: updated.force_stock_out !== undefined ? Boolean(updated.force_stock_out) : currentBrand.force_stock_out
         };
 
         if (isPgConnected) {
           pool.query(
-            `UPDATE product_brands SET name = $1, unit = $2, price = $3, cost_price = $4, image_url = $5, weekly_prices = $6, stock = $7, force_stock_out = $8 WHERE category_id = $9 AND name = $10`,
-            [cat.brands[bIdx].name, cat.brands[bIdx].unit, cat.brands[bIdx].price, cat.brands[bIdx].cost_price, cat.brands[bIdx].image || '', JSON.stringify(cat.brands[bIdx].weekly_prices), cat.brands[bIdx].stock, cat.brands[bIdx].force_stock_out, categoryId, brandName]
+            `UPDATE product_brands SET name = $1, unit = $2, price = $3, cost_price = $4, image_url = $5, stock = $6, force_stock_out = $7 WHERE category_id = $8 AND name = $9`,
+            [cat.brands[bIdx].name, cat.brands[bIdx].unit, cat.brands[bIdx].price, cat.brands[bIdx].cost_price, cat.brands[bIdx].image || '', cat.brands[bIdx].stock, cat.brands[bIdx].force_stock_out, categoryId, brandName]
           ).catch((e) => console.warn('PG sync error (brand update):', e.message));
         }
         return cat.brands[bIdx];
@@ -1170,28 +1090,6 @@ export class DBManager {
       return true;
     }
     return false;
-  }
-
-  static updateBrandWeeklyPrices(categoryId: number, brandName: string, weeklyPrices: Record<string, number>) {
-    const cat = this.data.categories.find(c => c.id === categoryId);
-    if (cat) {
-      const bIdx = cat.brands.findIndex(b => b.name === brandName);
-      if (bIdx !== -1) {
-        const currentBrand = cat.brands[bIdx] as any;
-        currentBrand.weekly_prices = {
-          ...(currentBrand.weekly_prices || {}),
-          ...weeklyPrices
-        };
-        if (isPgConnected) {
-          pool.query(
-            `UPDATE product_brands SET weekly_prices = $1 WHERE category_id = $2 AND name = $3`,
-            [JSON.stringify(currentBrand.weekly_prices), categoryId, brandName]
-          ).catch((e) => console.warn('PG sync error (weekly prices):', e.message));
-        }
-        return currentBrand;
-      }
-    }
-    return null;
   }
 
   // ==========================================
@@ -1966,7 +1864,6 @@ export class DBManager {
   // Bulk Product Stock & Price Updates
   static async bulkUpdateProducts(updates: Array<{ product_id?: number; category_id?: number; category_name?: string; brand_name?: string; unit?: string; price?: number; cost_price?: number; stock?: number; force_stock_out?: boolean }>) {
     let updatedCount = 0;
-    const todayKey = this.getTodayDayKey();
 
     for (const item of updates) {
       let matchedBrand: any = null;
@@ -2012,8 +1909,6 @@ export class DBManager {
 
         if (item.price !== undefined && !isNaN(Number(item.price))) {
           matchedBrand.price = Number(item.price);
-          if (!matchedBrand.weekly_prices || typeof matchedBrand.weekly_prices !== 'object') matchedBrand.weekly_prices = {};
-          matchedBrand.weekly_prices[todayKey] = matchedBrand.price;
         }
         if (item.cost_price !== undefined && !isNaN(Number(item.cost_price))) {
           matchedBrand.cost_price = Number(item.cost_price);
@@ -2028,13 +1923,13 @@ export class DBManager {
         if (isPgConnected) {
           if (matchedBrand.id) {
             pool.query(
-              `UPDATE product_brands SET name = $1, unit = $2, price = $3, cost_price = $4, stock = $5, force_stock_out = $6, weekly_prices = $7 WHERE id = $8`,
-              [matchedBrand.name, matchedBrand.unit || 'প্রতি কেজি', matchedBrand.price, matchedBrand.cost_price || 0, matchedBrand.stock ?? 100, matchedBrand.force_stock_out || false, JSON.stringify(matchedBrand.weekly_prices || {}), matchedBrand.id]
+              `UPDATE product_brands SET name = $1, unit = $2, price = $3, cost_price = $4, stock = $5, force_stock_out = $6 WHERE id = $7`,
+              [matchedBrand.name, matchedBrand.unit || 'প্রতি কেজি', matchedBrand.price, matchedBrand.cost_price || 0, matchedBrand.stock ?? 100, matchedBrand.force_stock_out || false, matchedBrand.id]
             ).catch((e: any) => console.warn('PG sync error (bulk product update by ID):', e.message));
           } else {
             pool.query(
-              `UPDATE product_brands SET unit = $1, price = $2, cost_price = $3, stock = $4, force_stock_out = $5, weekly_prices = $6 WHERE category_id = $7 AND name = $8`,
-              [matchedBrand.unit || 'প্রতি কেজি', matchedBrand.price, matchedBrand.cost_price || 0, matchedBrand.stock ?? 100, matchedBrand.force_stock_out || false, JSON.stringify(matchedBrand.weekly_prices || {}), matchedCat.id, matchedBrand.name]
+              `UPDATE product_brands SET unit = $1, price = $2, cost_price = $3, stock = $4, force_stock_out = $5 WHERE category_id = $6 AND name = $7`,
+              [matchedBrand.unit || 'প্রতি কেজি', matchedBrand.price, matchedBrand.cost_price || 0, matchedBrand.stock ?? 100, matchedBrand.force_stock_out || false, matchedCat.id, matchedBrand.name]
             ).catch((e: any) => console.warn('PG sync error (bulk product update by Name):', e.message));
           }
         }

@@ -29,7 +29,7 @@ import {
   CartesianGrid,
   Legend
 } from 'recharts';
-import { toBengaliNumber, DAYS_OF_WEEK } from '../utils/bengali.js';
+import { toBengaliNumber } from '../utils/bengali.js';
 
 export default function AdminDashboard({
   orders = [],

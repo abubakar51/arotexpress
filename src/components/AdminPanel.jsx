@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
-import { DAYS_OF_WEEK, getTodayDayKey, getProductPriceForDay, toBengaliNumber, formatStockDisplay } from '../utils/bengali.js';
+import { toBengaliNumber, formatStockDisplay } from '../utils/bengali.js';
 import AdminDashboard from './AdminDashboard.jsx';
 import AdminOrders from './AdminOrders.jsx';
 import AdminGroups from './AdminGroups.jsx';
@@ -179,10 +179,6 @@ export default function AdminPanel({ onNavigateHome }) {
   // Stock Modal
   const [stockModal, setStockModal] = useState(null); // { catId, brand, stock, force_stock_out }
   const [savingStock, setSavingStock] = useState(false);
-
-  // Header Featured Products State
-  const [selectedHeaderCatId, setSelectedHeaderCatId] = useState('');
-  const [selectedHeaderBrandName, setSelectedHeaderBrandName] = useState('');
 
   // Payments / Delivery state
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -661,74 +657,6 @@ export default function AdminPanel({ onNavigateHome }) {
     } finally {
       setSavingSettings(false);
     }
-  };
-
-  // Add Product to Header Featured List
-  const handleAddHeaderFeaturedProduct = () => {
-    if (!selectedHeaderCatId || !selectedHeaderBrandName) {
-      showToast('দয়া করে ক্যাটাগরি ও পণ্য নির্বাচন করুন');
-      return;
-    }
-    const catIdNum = parseInt(selectedHeaderCatId);
-    const selectedCat = categories.find((c) => c.id === catIdNum);
-    const selectedBrand = selectedCat?.brands?.find((b) => (b.id ? String(b.id) === selectedHeaderBrandName : b.name === selectedHeaderBrandName))
-      || selectedCat?.brands?.find((b) => b.name === selectedHeaderBrandName);
-    
-    if (!selectedBrand) {
-      showToast('পণ্য খুঁজে পাওয়া যায়নি');
-      return;
-    }
-
-    const existingList = settings?.featured_products || [];
-    
-    // Check if already in list (by brand_id if available, or category_id + brand_name)
-    const exists = existingList.some(
-      (fp) => (selectedBrand.id && fp.brand_id && fp.brand_id === selectedBrand.id)
-        || (fp.category_id === catIdNum && fp.brand_name === selectedBrand.name)
-    );
-    if (exists) {
-      showToast('এই পণ্যটি ইতিমধ্যেই হেডারের তালিকায় যুক্ত আছে');
-      return;
-    }
-
-    const newFeaturedItem = {
-      category_id: catIdNum,
-      brand_name: selectedBrand.name,
-      ...(selectedBrand.id ? { brand_id: selectedBrand.id } : {})
-    };
-
-    const updatedFeatured = [
-      ...existingList,
-      newFeaturedItem
-    ];
-
-    const newSettings = { ...settings, featured_products: updatedFeatured };
-    setSettings(newSettings);
-    // Auto-save to DB
-    fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-      body: JSON.stringify(newSettings)
-    }).then(() => showToast(`'${selectedBrand.name}' হেডারের তালিকায় যুক্ত হয়েছে`));
-    setSelectedHeaderBrandName('');
-  };
-
-  // Remove Product from Header Featured List
-  const handleRemoveHeaderFeaturedProduct = (catId, brandName, brandId = null) => {
-    const updatedFeatured = (settings?.featured_products || []).filter(
-      (fp) => {
-        if (brandId && fp.brand_id) return fp.brand_id !== brandId;
-        return !(fp.category_id === catId && fp.brand_name === brandName);
-      }
-    );
-    const newSettings = { ...settings, featured_products: updatedFeatured };
-    setSettings(newSettings);
-    // Auto-save to DB
-    fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-      body: JSON.stringify(newSettings)
-    }).then(() => showToast(`হেডার থেকে '${brandName}' সরানো হয়েছে`));
   };
 
   // Payment Method Save
@@ -2643,6 +2571,16 @@ export default function AdminPanel({ onNavigateHome }) {
                             onChange={(e) => setNewPayment({ ...newPayment, number: e.target.value })}
                           />
                         </div>
+                        <div className="field">
+                          <label>নির্দেশনা (Instructions)</label>
+                          <textarea
+                            placeholder="Send money করুন এবং TrxID দিন..."
+                            value={newPayment.instructions_bn}
+                            onChange={(e) => setNewPayment({ ...newPayment, instructions_bn: e.target.value })}
+                            rows={2}
+                            style={{ width: '100%', padding: '10px', border: '1.5px solid var(--rule)', borderRadius: 'var(--radius-md)', background: '#F8FAF9', fontSize: '14px', resize: 'vertical' }}
+                          />
+                        </div>
                         <div className="field" style={{ marginTop: '12px' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                             <input
@@ -2684,6 +2622,7 @@ export default function AdminPanel({ onNavigateHome }) {
                     <th>পদ্ধতি</th>
                     <th>কোড</th>
                     <th>অ্যাকাউন্ট নম্বর</th>
+                    <th>নির্দেশনা</th>
                     <th>সক্রিয় স্ট্যাটাস</th>
                     <th>অ্যাকশন</th>
                   </tr>
@@ -2694,6 +2633,7 @@ export default function AdminPanel({ onNavigateHome }) {
                       <td><strong>{p.name_bn}</strong></td>
                       <td className="mono">{p.code}</td>
                       <td className="mono">{p.number || '—'}</td>
+                      <td style={{ fontSize: '12px' }}>{p.instructions_bn}</td>
                       <td>
                         <button
                           type="button"
@@ -3216,149 +3156,6 @@ export default function AdminPanel({ onNavigateHome }) {
                   onChange={(e) => setSettings({ ...settings, header_subtitle: e.target.value })}
                   required
                 ></textarea>
-              </div>
-
-              {/* Header 7-Day Price Card Featured Products Selector */}
-              <div
-                style={{
-                  background: '#FFFFFF',
-                  border: '1px solid var(--rule)',
-                  borderRadius: 'var(--radius-xl)',
-                  padding: '20px',
-                  margin: '20px 0',
-                  boxShadow: 'var(--shadow-sm)'
-                }}
-              >
-                <h4 style={{ fontSize: '16px', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sliders size={17} />
-                  <span>হেডারের ৭ দিনের বাজার দর কার্ডে পণ্য নির্বাচন</span>
-                </h4>
-                <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 14px' }}>
-                  এখানে আপনি কোন কোন পণ্যের দর হেডারে দেখাতে চান তা ক্যাটাগরি ও পণ্য তালিকা থেকে বেছে নিন। আলাদা করে কোনো দাম লিখতে হবে না—সিস্টেম পণ্যটির ৭ দিনের চার্ট থেকে স্বয়ংক্রিয়ভাবে দর প্রদর্শন করবে।
-                </p>
-
-                {/* Add product to header ticker */}
-                <div className="field-row" style={{ alignItems: 'flex-end', marginBottom: '14px' }}>
-                  <div className="field" style={{ margin: 0 }}>
-                    <label>১. ক্যাটাগরি নির্বাচন করুন</label>
-                    <select
-                      value={selectedHeaderCatId}
-                      onChange={(e) => {
-                        setSelectedHeaderCatId(e.target.value);
-                        setSelectedHeaderBrandName('');
-                      }}
-                    >
-                      <option value="">-- ক্যাটাগরি বেছে নিন --</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.bn} ({c.en})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="field" style={{ margin: 0 }}>
-                    <label>২. পণ্য / ব্র্যান্ড নির্বাচন করুন</label>
-                    <select
-                      value={selectedHeaderBrandName}
-                      onChange={(e) => setSelectedHeaderBrandName(e.target.value)}
-                      disabled={!selectedHeaderCatId}
-                    >
-                      <option value="">-- পণ্য বেছে নিন --</option>
-                      {selectedHeaderCatId &&
-                        categories
-                          .find((c) => c.id === parseInt(selectedHeaderCatId))
-                          ?.brands.map((b) => (
-                            <option key={b.id || b.name} value={b.id ? String(b.id) : b.name}>
-                              {b.name} ({b.unit} — ৳{b.price})
-                            </option>
-                          ))}
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="admin-btn primary"
-                    style={{ height: '40px', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    onClick={handleAddHeaderFeaturedProduct}
-                  >
-                    <Plus size={15} />
-                    <span>হেডারে যুক্ত করুন</span>
-                  </button>
-                </div>
-
-                {/* Current Featured List */}
-                <div style={{ marginTop: '14px' }}>
-                  <label style={{ fontSize: '12.5px', fontWeight: 700, marginBottom: '6px', display: 'block' }}>
-                    বর্তমান হেডারে প্রদর্শিত পণ্য তালিকা:
-                  </label>
-                  {(settings.featured_products || []).length === 0 ? (
-                    <div style={{ fontSize: '13px', color: 'var(--muted)', padding: '8px 0' }}>
-                      কোনো পণ্য নির্বাচন করা হয়নি। উপরে থেকে পণ্য যোগ করুন।
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {(settings.featured_products || []).map((fp, idx) => {
-                        let cat = null;
-                        let brand = null;
-
-                        if (fp.brand_id) {
-                          for (const c of categories) {
-                            const found = c.brands?.find((b) => b.id === fp.brand_id);
-                            if (found) {
-                              cat = c;
-                              brand = found;
-                              break;
-                            }
-                          }
-                        }
-
-                        if (!brand) {
-                          cat = categories.find((c) => c.id === fp.category_id);
-                          brand = cat?.brands?.find((b) => b.name === fp.brand_name);
-                        }
-
-                        const todayPrice = brand ? getProductPriceForDay(brand, getTodayDayKey()) : '—';
-                        const displayName = brand ? brand.name : fp.brand_name;
-
-                        return (
-                          <div
-                            key={idx}
-                            style={{
-                              background: '#F8FAF9',
-                              border: '1px solid var(--rule)',
-                              borderRadius: 'var(--radius-md)',
-                              padding: '10px 14px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <CategoryIcon icon={cat?.icon} category={cat} size={18} />
-                              <strong>{cat?.bn} — {displayName}</strong>
-                              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                                ({brand?.unit || 'কেজি'})
-                              </span>
-                              <span className="mono" style={{ color: 'var(--green)', fontWeight: 700, fontSize: '13px' }}>
-                                আজকের দর: ৳{toBengaliNumber(todayPrice)}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              className="admin-btn danger"
-                              style={{ padding: '3px 8px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                              onClick={() => handleRemoveHeaderFeaturedProduct(fp.category_id, fp.brand_name, fp.brand_id)}
-                            >
-                              <Trash2 size={12} />
-                              <span>বাদ দিন</span>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
               </div>
 
               <div className="field">

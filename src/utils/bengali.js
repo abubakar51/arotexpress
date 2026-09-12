@@ -38,30 +38,6 @@ export function toBengaliNumber(num, maxDecimals = 2) {
   return String(num).replace(/[0-9]/g, (digit) => banglaDigits[digit] || digit);
 }
 
-export const DAYS_OF_WEEK = [
-  { key: 'sat', name_bn: 'শনিবার', short_bn: 'শনি', short_en: 'Sa', dayIndex: 6 },
-  { key: 'sun', name_bn: 'রবিবার', short_bn: 'রবি', short_en: 'Su', dayIndex: 0 },
-  { key: 'mon', name_bn: 'সোমবার', short_bn: 'সোম', short_en: 'Mo', dayIndex: 1 },
-  { key: 'tue', name_bn: 'মঙ্গলবার', short_bn: 'মঙ্গল', short_en: 'Tu', dayIndex: 2 },
-  { key: 'wed', name_bn: 'বুধবার', short_bn: 'বুধ', short_en: 'We', dayIndex: 3 },
-  { key: 'thu', name_bn: 'বৃহস্পতিবার', short_bn: 'বৃহঃ', short_en: 'Th', dayIndex: 4 },
-  { key: 'fri', name_bn: 'শুক্রবার', short_bn: 'শুক্র', short_en: 'Fr', dayIndex: 5 },
-];
-
-export function getTodayDayKey() {
-  const dayIndex = new Date().getDay(); // 0 is Sunday, 6 is Saturday
-  const found = DAYS_OF_WEEK.find((d) => d.dayIndex === dayIndex);
-  return found ? found.key : 'sat';
-}
-
-export function getProductPriceForDay(brand, dayKey) {
-  if (!brand) return 0;
-  if (brand.weekly_prices && typeof brand.weekly_prices[dayKey] === 'number') {
-    return brand.weekly_prices[dayKey];
-  }
-  return brand.price || 0;
-}
-
 /**
  * Formats stock display with clean Bengali number and appropriate unit.
  * E.g., if stock is 100 and unit is "২৫০ গ্রাম প্যাকেট", returns "১০০ প্যাকেট (২৫০ গ্রাম)" or "১০০ প্যাকেট"
