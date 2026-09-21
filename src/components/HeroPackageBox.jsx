@@ -171,7 +171,7 @@ export default function HeroPackageBox() {
           </span>
         </div>
 
-        {totalSavings > 0 && (
+        {(
           <span
             style={{
               fontSize: '10.5px',
@@ -352,7 +352,7 @@ function PackageProductRow({ product, qty, onInc, onDec }) {
           >
             ৳{toBengaliNumber(fnlPrice)}
           </span>
-          <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text)' }}>
+          <span style={{ fontSize: '10px', fontWeight: '600', color: 'var(--muted)' }}>
             /{product.unit}
           </span>
         </div>
