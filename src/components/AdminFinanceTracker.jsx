@@ -48,10 +48,10 @@ export default function AdminFinanceTracker({
   categories = [],
   showToast
 }) {
-  const [activeSubTab, setActiveSubTab] = useState('overview'); // 'overview' | 'expenses' | 'analytics'
+  const [activeSubTab, setActiveSubTab] = useState('expenses'); // 'overview' | 'expenses' | 'analytics'
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filterPeriod, setFilterPeriod] = useState('month'); // today, yesterday, week, month, all, custom
+  const [filterPeriod, setFilterPeriod] = useState('all'); // today, yesterday, week, month, all, custom
   const [orderSourceFilter, setOrderSourceFilter] = useState('all'); // 'all' | 'regular' | 'package'
   const [filterCategory, setFilterCategory] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');

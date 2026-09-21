@@ -137,7 +137,7 @@ export default function HeroPackageBox() {
         overflow: 'hidden',
         width: '100%',
         maxWidth: '520px',
-        fontSize: '12px'
+        fontSize: '14px'
       }}
     >
       {/* Minimalist Box Header */}
@@ -185,7 +185,7 @@ export default function HeroPackageBox() {
             সাশ্রয়: ৳{toBengaliNumber(totalSavings)}
           </span>
         ) : (
-          <span style={{ fontSize: '10.5px', color: 'var(--muted)' }}>
+          <span style={{ fontSize: '12px', color: 'var(--green)' }}>
             পরিমাণ বাড়িয়ে ডিসকাউন্ট নিন
           </span>
         )}
@@ -198,24 +198,11 @@ export default function HeroPackageBox() {
           display: 'grid',
           gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
           padding: '8px 10px',
-          gap: '8px',
           alignItems: 'start'
         }}
       >
         {/* Side 1: Products 1 to 5 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: '10.5px',
-              fontWeight: '600',
-              color: 'var(--muted)',
-              padding: '1px 4px',
-              borderBottom: '1px solid var(--rule)'
-            }}
-          >
-            ১ম পাশ (আইটেম ১ - ৫)
-          </div>
-
           {sideAProducts.map((prod) => (
             <PackageProductRow
               key={`pkg-sideA-${prod.slot_number || prod.id}`}
@@ -238,18 +225,6 @@ export default function HeroPackageBox() {
             paddingLeft: '8px'
           }}
         >
-          <div
-            style={{
-              fontSize: '10.5px',
-              fontWeight: '600',
-              color: 'var(--muted)',
-              padding: '1px 4px',
-              borderBottom: '1px solid var(--rule)'
-            }}
-          >
-            ২য় পাশ (আইটেম ৬ - ১০)
-          </div>
-
           {sideBProducts.map((prod) => (
             <PackageProductRow
               key={`pkg-sideB-${prod.slot_number || prod.id}`}
@@ -354,7 +329,7 @@ function PackageProductRow({ product, qty, onInc, onDec }) {
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
         <span
           style={{
-            fontSize: '11.5px',
+            fontSize: '13px',
             fontWeight: isSelected ? '600' : '500',
             color: 'var(--text)',
             lineHeight: '1.2',
@@ -368,20 +343,20 @@ function PackageProductRow({ product, qty, onInc, onDec }) {
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {regPrice > fnlPrice && (
-            <span style={{ fontSize: '9.5px', textDecoration: 'line-through', color: 'var(--muted)' }}>
+            <span style={{ fontSize: '11px', textDecoration: 'line-through', color: 'var(--muted)' }}>
               ৳{toBengaliNumber(regPrice)}
             </span>
           )}
           <span
             style={{
-              fontSize: '11.5px',
+              fontSize: '13px',
               fontWeight: '700',
               color: isSelected ? '#006C4C' : 'var(--text)'
             }}
           >
             ৳{toBengaliNumber(fnlPrice)}
           </span>
-          <span style={{ fontSize: '9.5px', color: 'var(--muted)' }}>
+          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
             /{product.unit}
           </span>
         </div>

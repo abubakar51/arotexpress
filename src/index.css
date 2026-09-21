@@ -1258,7 +1258,7 @@ header, .main-app-header {
   padding: 11px 14px;
   font-size: 14.5px;
   font-weight: 500;
-  background: #F8FAF9;
+  background: #FFF;
   color: var(--ink);
   transition: all 0.2s var(--ease);
   outline: none;
