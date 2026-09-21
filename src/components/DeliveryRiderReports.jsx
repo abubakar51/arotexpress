@@ -182,10 +182,15 @@ export default function DeliveryRiderReports({ rider, orders = [] }) {
                   const isCOD = !order.payment_method || order.payment_method.toLowerCase().includes('cash') || order.payment_method.includes('ক্যাশ');
 
                   return (
-                    <tr key={order.id} style={{ borderBottom: '1px solid var(--rule)' }}>
+                    <tr key={order.order_code ? `rider-rpt-${order.order_code}` : `rider-rpt-${order.is_package ? 'pkg' : 'reg'}-${order.id}-${idx}`} style={{ borderBottom: '1px solid var(--rule)' }}>
                       <td className="mono" style={{ textAlign: 'center' }}>{toBengaliNumber(idx + 1)}</td>
                       <td className="mono" style={{ fontWeight: 700, color: 'var(--green)' }}>
-                        {order.order_code || `#ORD-${order.id}`}
+                        <div>{order.order_code || `#ORD-${order.id}`}</div>
+                        {(order.is_package || order.isPackage || (order.order_code && order.order_code.startsWith('PK-'))) && (
+                          <span style={{ fontSize: '10px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '1px 5px', borderRadius: '3px', fontWeight: 700, display: 'inline-block', marginTop: '2px' }}>
+                            প্যাকেজ
+                          </span>
+                        )}
                       </td>
                       <td>
                         <strong>{order.customer_name}</strong>

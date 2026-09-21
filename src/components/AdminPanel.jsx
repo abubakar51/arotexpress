@@ -51,6 +51,8 @@ import AdminReportsHub from './AdminReportsHub.jsx';
 import AdminDeliveryRiders from './AdminDeliveryRiders.jsx';
 import AdminFinanceTracker from './AdminFinanceTracker.jsx';
 import AdminBulkProducts from './AdminBulkProducts.jsx';
+import AdminPackageOrders from './AdminPackageOrders.jsx';
+import AdminPackageManagement from './AdminPackageManagement.jsx';
 import LowStockBanner from './LowStockBanner.jsx';
 import CustomerInvoiceModal from './CustomerInvoiceModal.jsx';
 import PosReceiptModal from './PosReceiptModal.jsx';
@@ -122,6 +124,8 @@ export default function AdminPanel({ onNavigateHome }) {
   const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(60);
   const [settings, setSettings] = useState(null);
   const [usersList, setUsersList] = useState([]);
+  const [packageProducts, setPackageProducts] = useState([]);
+  const [packageOrders, setPackageOrders] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
 
   // Modals / Edit states for Categories & Brands
@@ -227,7 +231,7 @@ export default function AdminPanel({ onNavigateHome }) {
     if (!adminToken) return;
     setLoadingData(true);
     try {
-      const [ordRes, catRes, payRes, areaRes, setRes, usrRes, riderRes, verifyRes] = await Promise.all([
+      const [ordRes, catRes, payRes, areaRes, setRes, usrRes, riderRes, verifyRes, pkgProdRes, pkgOrdRes] = await Promise.all([
         fetch('/api/orders', { headers: { Authorization: `Bearer ${adminToken}` } }),
         fetch('/api/categories'),
         fetch('/api/payment-methods'),
@@ -235,10 +239,22 @@ export default function AdminPanel({ onNavigateHome }) {
         fetch('/api/settings'),
         fetch('/api/admin/users', { headers: { Authorization: `Bearer ${adminToken}` } }),
         fetch('/api/delivery-riders', { headers: { Authorization: `Bearer ${adminToken}` } }),
-        fetch('/api/admin/payment-verify', { headers: { Authorization: `Bearer ${adminToken}` } })
+        fetch('/api/admin/payment-verify', { headers: { Authorization: `Bearer ${adminToken}` } }),
+        fetch('/api/package-products?all=1'),
+        fetch('/api/package-orders', { headers: { Authorization: `Bearer ${adminToken}` } })
       ]);
 
       if (ordRes.ok) setOrders(await ordRes.json());
+      if (pkgOrdRes && pkgOrdRes.ok) setPackageOrders(await pkgOrdRes.json());
+      if (pkgProdRes && pkgProdRes.ok) {
+        const pkgData = await pkgProdRes.json();
+        const list = Array.isArray(pkgData)
+          ? pkgData
+          : Array.isArray(pkgData?.products)
+          ? pkgData.products
+          : [];
+        setPackageProducts(list);
+      }
       if (riderRes && riderRes.ok) setDeliveryRiders(await riderRes.json());
       if (catRes.ok) {
         const catData = await catRes.json();
@@ -319,6 +335,47 @@ export default function AdminPanel({ onNavigateHome }) {
       }
     } catch (err) {
       showToast('স্ট্যাটাস পরিবর্তনে সমস্যা হয়েছে');
+    }
+  };
+
+  const handlePackageOrderStatusChange = async (orderId, newStatus, riderInfo) => {
+    try {
+      const res = await fetch(`/api/package-orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ status: newStatus, ...(riderInfo || {}) })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPackageOrders(packageOrders.map((o) => (o.id === orderId ? (typeof updated === 'object' && updated.id ? updated : { ...o, status: newStatus, ...(riderInfo || {}) }) : o)));
+        showToast(`প্যাকেজ অর্ডার স্ট্যাটাস '${newStatus}' করা হয়েছে`);
+      }
+    } catch (err) {
+      showToast('স্ট্যাটাস পরিবর্তনে সমস্যা হয়েছে');
+    }
+  };
+
+  const handlePackageOrderAssignRider = async (orderId, riderId) => {
+    try {
+      const res = await fetch(`/api/package-orders/${orderId}/rider`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ riderId, rider_id: riderId })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPackageOrders(packageOrders.map((o) => (o.id === orderId ? (typeof updated === 'object' && updated.id ? updated : { ...o, delivery_rider_id: riderId }) : o)));
+        showToast('রাইডার সফলভাবে নির্ধারণ করা হয়েছে');
+        fetchAllData();
+      }
+    } catch (err) {
+      showToast('রাইডার নির্ধারণে সমস্যা হয়েছে');
     }
   };
 
@@ -1071,6 +1128,15 @@ export default function AdminPanel({ onNavigateHome }) {
 
           <motion.button
             whileTap={{ scale: 0.98 }}
+            className={`admin-nav-item ${adminTab === 'package_orders' ? 'active' : ''}`}
+            onClick={() => { setAdminTab('package_orders'); setSidebarOpen(false); window.scrollTo(0, 0); }}
+          >
+            <Package size={16} />
+            <span>প্যাকেজ অর্ডারসমূহ ({packageOrders.length})</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
             className={`admin-nav-item ${adminTab === 'riders' ? 'active' : ''}`}
             onClick={() => { setAdminTab('riders'); setSidebarOpen(false); window.scrollTo(0, 0); }}
           >
@@ -1094,6 +1160,15 @@ export default function AdminPanel({ onNavigateHome }) {
           >
             <Layers size={16} />
             <span>ক্যাটাগরি ও পণ্য ({categories.length})</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            className={`admin-nav-item ${adminTab === 'package_management' ? 'active' : ''}`}
+            onClick={() => { setAdminTab('package_management'); setSidebarOpen(false); window.scrollTo(0, 0); }}
+          >
+            <Package size={16} />
+            <span>প্যাকেজ বক্স (Hero 10)</span>
           </motion.button>
 
           <motion.button
@@ -1252,12 +1327,37 @@ export default function AdminPanel({ onNavigateHome }) {
               />
             )}
 
+            {/* 1.1. PACKAGE ORDERS TAB */}
+            {adminTab === 'package_orders' && (
+              <AdminPackageOrders
+                packageOrders={packageOrders}
+                deliveryRiders={deliveryRiders}
+                onUpdateStatus={handlePackageOrderStatusChange}
+                onAssignRider={handlePackageOrderAssignRider}
+                onOpenReceipt={(ord) => setSelectedOrderForReceipt(ord)}
+                onOpenInvoice={(ord) => setInvoiceModalOrder(ord)}
+                onRefresh={fetchAllData}
+              />
+            )}
+
+            {/* 1.15. HERO PACKAGE PRODUCTS MANAGEMENT TAB */}
+            {adminTab === 'package_management' && (
+              <AdminPackageManagement
+                packageProducts={packageProducts}
+                categories={categories}
+                settings={settings}
+                adminToken={adminToken}
+                onRefresh={fetchAllData}
+              />
+            )}
+
             {/* 1.2. DELIVERY RIDERS TAB */}
             {adminTab === 'riders' && (
               <AdminDeliveryRiders
                 deliveryRiders={deliveryRiders}
                 deliveryAreas={deliveryAreas}
                 orders={orders}
+                packageOrders={packageOrders}
                 onRefresh={fetchAllData}
                 adminToken={adminToken}
                 showToast={showToast}
@@ -1269,6 +1369,7 @@ export default function AdminPanel({ onNavigateHome }) {
               <AdminFinanceTracker
                 adminToken={adminToken}
                 orders={orders}
+                packageOrders={packageOrders}
                 categories={categories}
                 showToast={showToast}
               />
@@ -2941,6 +3042,7 @@ export default function AdminPanel({ onNavigateHome }) {
         {adminTab === 'reports_hub' && (
           <AdminReportsHub
             orders={orders}
+            packageOrders={packageOrders}
             categories={categories}
             usersList={usersList}
             deliveryAreas={deliveryAreas}

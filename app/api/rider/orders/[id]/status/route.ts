@@ -10,11 +10,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const DBManager = await getDB();
-    const { status, note } = await req.json();
+    const { status, note, is_package, order_type } = await req.json();
     if (!status) {
       return NextResponse.json({ error: 'স্ট্যাটাস আবশ্যক' }, { status: 400 });
     }
-    const order = await DBManager.updateRiderOrderStatus((authResult.user as any).id, parseInt((await params).id), status, note);
+    const order = await DBManager.updateRiderOrderStatus(
+      (authResult.user as any).id,
+      parseInt((await params).id),
+      status,
+      note,
+      is_package !== undefined ? Boolean(is_package) : (order_type === 'package')
+    );
     if (!order) return NextResponse.json({ error: 'অর্ডার পাওয়া যায়নি' }, { status: 404 });
     return NextResponse.json(order);
   } catch (err: any) {

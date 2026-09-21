@@ -12,12 +12,10 @@ export async function GET(req: NextRequest) {
   const DBManager = await getDB();
   const userPayload = authResult.user as any;
   if (userPayload.role === 'admin') {
-    return NextResponse.json(DBManager.getOrders());
+    return NextResponse.json(DBManager.getPackageOrders());
   }
-  const regularOrders = (DBManager.getOrdersByUserId(userPayload.id) || []).map((o: any) => ({ ...o, is_package_order: false }));
-  const packageOrders = (DBManager.getPackageOrdersByUserId(userPayload.id) || []).map((o: any) => ({ ...o, is_package_order: true }));
-  const allOrders = [...regularOrders, ...packageOrders].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-  return NextResponse.json(allOrders);
+  const orders = DBManager.getPackageOrdersByUserId(userPayload.id);
+  return NextResponse.json(orders);
 }
 
 export async function POST(req: NextRequest) {
@@ -39,6 +37,7 @@ export async function POST(req: NextRequest) {
       trx_id,
       items,
       subtotal,
+      discount_total,
       delivery_fee,
       total_amount
     } = body;
@@ -48,43 +47,39 @@ export async function POST(req: NextRequest) {
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'কার্টে কোনো পণ্য নেই' }, { status: 400 });
+      return NextResponse.json({ error: 'প্যাকেজে অন্তত একটি পণ্য থাকা আবশ্যক' }, { status: 400 });
     }
 
-    // Server-side price calculation and validation
-    const categories = DBManager.data.categories || [];
-    let serverSubtotal = 0;
-    const verifiedItems = items.map((item: any) => {
-      const qty = Math.max(1, Number(item.qty) || 1);
-      let brand: any = null;
-      const pId = item.productId || item.product_id || item.id;
-      if (pId) {
-        for (const cat of categories) {
-          const b = cat.brands?.find((b: any) => b.id === pId);
-          if (b) {
-            brand = b;
-            break;
-          }
-        }
-      }
-      if (!brand) {
-        for (const cat of categories) {
-          if (cat.id === item.catId) {
-            const b = cat.brands?.find((b: any) => b.name === item.brand);
-            if (b) {
-              brand = b;
-              break;
-            }
-          }
-        }
-      }
+    // Server-side validation of package products and prices
+    const packageProducts = DBManager.data.package_products || [];
+    let serverRegularSubtotal = 0;
+    let serverFinalSubtotal = 0;
+    let serverDiscountTotal = 0;
 
-      const verifiedPrice = brand ? Number(brand.price) || 0 : (Number(item.price) || 0);
-      serverSubtotal += verifiedPrice * qty;
+    const verifiedPackageItems = items.map((item: any) => {
+      const qty = Math.max(1, Number(item.qty) || 1);
+      const pkgProd = packageProducts.find((p: any) =>
+        (item.packageProductId && p.id === item.packageProductId) ||
+        (item.id && p.id === item.id) ||
+        (item.productId && p.product_id === item.productId) ||
+        (item.product_name && p.product_name && p.product_name.trim().toLowerCase() === item.product_name.trim().toLowerCase())
+      );
+
+      const regularPrice = pkgProd ? Number(pkgProd.regular_price) || 0 : (Number(item.regular_price) || Number(item.price) || 0);
+      const finalPrice = pkgProd ? Number(pkgProd.final_price) || 0 : (Number(item.final_price) || Number(item.price) || 0);
+      const discount = Math.max(0, regularPrice - finalPrice);
+
+      serverRegularSubtotal += regularPrice * qty;
+      serverFinalSubtotal += finalPrice * qty;
+      serverDiscountTotal += discount * qty;
 
       return {
         ...item,
-        price: verifiedPrice,
+        productId: pkgProd?.product_id || item.productId,
+        packageProductId: pkgProd?.id || item.packageProductId,
+        regular_price: regularPrice,
+        final_price: finalPrice,
+        price: finalPrice,
         qty
       };
     });
@@ -99,7 +94,7 @@ export async function POST(req: NextRequest) {
       ? Number(matchedArea.charge)
       : (Number(settings.default_delivery_fee) || 60);
 
-    const calculatedTotal = serverSubtotal + serverDeliveryFee;
+    const calculatedTotal = serverFinalSubtotal + serverDeliveryFee;
 
     // Check if the selected payment is COD or online payment (bKash, Nagad, Rocket)
     const methodStr = String(payment_method || '').toLowerCase();
@@ -116,7 +111,7 @@ export async function POST(req: NextRequest) {
       if (cleanTrx) {
         const trxCheck = DBManager.isTrxIdUsed(cleanTrx);
         if (trxCheck.used) {
-          console.warn(`[OrderPayment] TrxID already used in ${trxCheck.orderType} #${trxCheck.order?.order_code || trxCheck.order?.id}`);
+          console.warn(`[PackageOrderPayment] TrxID already used in ${trxCheck.orderType} #${trxCheck.order?.order_code || trxCheck.order?.id}`);
           return NextResponse.json({
             error: `TrxID "${cleanTrx}" টি ইতিমধ্যে পূর্বে ব্যবহার করা হয়েছে (${trxCheck.orderType === 'package_orders' ? 'প্যাকেজ অর্ডার' : 'সাধারণ অর্ডার'} #${trxCheck.order?.order_code || trxCheck.order?.id})! এই TrxID দিয়ে কোনোভাবেই অর্ডার প্লেস করা যাবে না।`,
             verified: false,
@@ -132,35 +127,26 @@ export async function POST(req: NextRequest) {
       );
 
       if (isAutoVerifyActive) {
-        if (!sender_number || !String(sender_number).trim()) {
-          return NextResponse.json({
-            error: 'পেমেন্ট যাচাইয়ের জন্য প্রেরক মোবাইল নম্বর আবশ্যক',
-            code: 'MISSING_SENDER_NUMBER'
-          }, { status: 400 });
-        }
+        const senderKey = normalizePaymentSender(payment_method);
 
         if (!cleanTrx) {
           return NextResponse.json({
-            error: 'পেমেন্ট যাচাইয়ের জন্য ট্রানজেকশন আইডি (TrxID) আবশ্যক',
-            code: 'MISSING_TRX_ID'
+            error: 'অনলাইন পেমেন্টের ক্ষেত্রে ট্রানজেকশন আইডি (TrxID) দেওয়া বাধ্যতামূলক।',
+            verified: false,
+            code: 'TRX_REQUIRED'
           }, { status: 400 });
         }
 
-        const senderKey = normalizePaymentSender(payment_method);
-
-        console.log(`[OrderPayment] Auto-verifying order payment for customer ${customer_phone} via ${senderKey}`);
         const verifyResult = await verifyPaymentWithRetry({
           apiUrl: settings.payment_verify_api_url,
           apiKey: settings.payment_verify_api_key,
           trxId: cleanTrx,
           sender: senderKey,
-          number: String(sender_number).trim(),
+          number: String(sender_number || '').trim(),
           amount: calculatedTotal
         });
 
-        // ABSOLUTE MANDATE: Under NO circumstances should an order be placed unless code is strictly "VERIFIED_SUCCESS"
         if (!verifyResult || verifyResult.verified !== true || verifyResult.code !== 'VERIFIED_SUCCESS') {
-          console.warn(`[OrderPayment] 🚫 Order placement REJECTED. Result code "${verifyResult?.code}" is NOT "VERIFIED_SUCCESS":`, verifyResult?.message);
           return NextResponse.json({
             error: verifyResult?.message || 'পেমেন্ট যাচাইকরণ ব্যর্থ হয়েছে। শুধুমাত্র সফল ভেরিফিকেশন (VERIFIED_SUCCESS) পেলেই অর্ডার সম্পন্ন হবে।',
             verified: false,
@@ -170,7 +156,6 @@ export async function POST(req: NextRequest) {
           }, { status: 400 });
         }
 
-        // Verification successful strictly with VERIFIED_SUCCESS!
         payment_status = 'verified';
         payment_verified_at = new Date().toISOString();
         payment_verified_data = verifyResult.data || {
@@ -183,7 +168,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userPayload = authResult.user as any;
-    const order = DBManager.createOrder({
+    const order = await DBManager.createPackageOrder({
       user_id: userPayload.id,
       customer_name,
       customer_phone,
@@ -192,16 +177,15 @@ export async function POST(req: NextRequest) {
       payment_method,
       sender_number: sender_number || '',
       trx_id: trx_id || '',
-      items_json: verifiedItems,
-      subtotal: serverSubtotal,
+      items_json: verifiedPackageItems,
+      subtotal: serverFinalSubtotal,
+      discount_total: serverDiscountTotal,
       delivery_fee: serverDeliveryFee,
       total_amount: calculatedTotal,
       payment_status,
       payment_verified_at,
       payment_verified_data
     });
-
-    DBManager.saveUserCart(userPayload.id, {});
 
     return NextResponse.json(order);
   } catch (err: any) {

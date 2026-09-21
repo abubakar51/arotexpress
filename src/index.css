@@ -4,6 +4,14 @@
 /* ================================================= */
 
 :root {
+  /* Primary brand and essential tokens */
+  --primary: #006C4C;
+  --primary-hover: #005138;
+  --primary-dim: rgba(0, 108, 76, 0.08);
+  --surface: #FFFFFF;
+  --surface-hover: #F8FAF8;
+  --text: #191C1B;
+
   /* M3 Tonal Palette */
   --md-primary: #006C4C;
   --md-on-primary: #FFFFFF;
@@ -573,14 +581,45 @@ header, .main-app-header {
 /* HERO SECTION (M3 BANNER & RATE LEDGER)            */
 /* ================================================= */
 .hero {
-  max-width: 1180px;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 44px 20px 36px;
+  padding: 32px 20px 24px;
   display: grid;
-  grid-template-columns: 1.25fr 0.95fr;
-  gap: 36px;
+  grid-template-columns: 1.15fr 0.95fr;
+  gap: 28px;
   align-items: center;
   animation: fadeUp 0.4s var(--ease);
+}
+
+.hero-package-box {
+  width: 100%;
+  max-width: 520px;
+  justify-self: end;
+}
+
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 24px 16px;
+  }
+  .hero-package-box {
+    justify-self: center;
+    max-width: 520px;
+  }
+}
+
+@media (max-width: 540px) {
+  .package-columns-container {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .package-columns-container > div:last-child {
+    border-left: none !important;
+    border-top: 1px solid var(--rule) !important;
+    padding-left: 0 !important;
+    padding-top: 8px !important;
+  }
 }
 
 @keyframes fadeUp {

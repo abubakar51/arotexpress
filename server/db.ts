@@ -3,11 +3,11 @@ import bcrypt from 'bcryptjs';
 
 // Clean & Simple Supabase Session Pooler Configuration (Discrete Credentials)
 const pool = new Pool({
-  host: process.env.PGHOST,
+  host: process.env.PGHOST || 'aws-0-ap-southeast-2.pooler.supabase.com',
   port: process.env.PGPORT ? parseInt(process.env.PGPORT, 10) : 5432,
-  database: process.env.PGDATABASE,
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE || 'postgres',
+  user: process.env.PGUSER || 'postgres.eryerbkuesvnjxozihjm',
+  password: process.env.PGPASSWORD || 'SPmd1151@@##',
   ssl: { rejectUnauthorized: false }
 });
 
@@ -103,6 +103,51 @@ export interface DBGroup {
   sort_order: number;
 }
 
+export interface PackageProduct {
+  id: number;
+  product_id?: number;
+  category_id?: number;
+  category_name?: string;
+  product_name: string;
+  unit: string;
+  regular_price: number;
+  cost_price: number;
+  discount_amount: number;
+  final_price: number;
+  slot_number: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface PackageOrder {
+  id: number;
+  order_code: string;
+  user_id?: number | null;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  delivery_area: string;
+  payment_method: string;
+  sender_number?: string;
+  trx_id?: string;
+  subtotal: number;
+  discount_total?: number;
+  delivery_fee: number;
+  total_amount: number;
+  items_json: any[];
+  status: string;
+  payment_status: string;
+  payment_verified_at?: string | null;
+  payment_verified_data?: any;
+  delivery_rider_id?: number;
+  delivery_rider_name?: string;
+  delivery_rider_phone?: string;
+  delivery_rider_vehicle?: string;
+  delivery_note?: string;
+  delivered_at?: string | null;
+  created_at?: string;
+}
+
 // Clean Default State Structure (Data is loaded dynamically from PostgreSQL)
 export const initialData = {
   settings: {
@@ -122,7 +167,8 @@ export const initialData = {
     logo_type: 'text',
     logo_image_url: '',
     logo_text_bn: 'আড়ৎ এক্সপ্রেস',
-    logo_text_en: 'Arot Express'
+    logo_text_en: 'Arot Express',
+    package_min_items: 1
   },
   delivery_areas: [
     { id: 1, name: 'ধানমন্ডি ও মিরপুর', charge: 60, is_active: true },
@@ -257,7 +303,21 @@ export const initialData = {
     }
   ] as DBAdmin[],
   orders: [] as any[],
-  carts: {} as Record<string, any>
+  carts: {} as Record<string, any>,
+  package_carts: {} as Record<string, any>,
+  package_products: [
+    { id: 1, slot_number: 1, product_id: 1, category_id: 1, category_name: 'চাল', product_name: 'মিনিকেট চাল (প্রিমিয়াম)', unit: 'প্রতি কেজি', regular_price: 100, cost_price: 90, discount_amount: 5, final_price: 95, is_active: true },
+    { id: 2, slot_number: 2, product_id: 2, category_id: 1, category_name: 'চাল', product_name: 'নাজিরশাইল চাল', unit: 'প্রতি কেজি', regular_price: 80, cost_price: 70, discount_amount: 4, final_price: 76, is_active: true },
+    { id: 3, slot_number: 3, product_id: 12, category_id: 4, category_name: 'তেল', product_name: 'ফ্রেশ সয়াবিন তেল', unit: '১ লিটার', regular_price: 189, cost_price: 175, discount_amount: 9, final_price: 180, is_active: true },
+    { id: 4, slot_number: 4, product_id: 13, category_id: 4, category_name: 'তেল', product_name: 'পুষ্টি সয়াবিন তেল', unit: '১ লিটার', regular_price: 185, cost_price: 170, discount_amount: 8, final_price: 177, is_active: true },
+    { id: 5, slot_number: 5, product_id: 17, category_id: 6, category_name: 'লবণ', product_name: 'এসিআই লবণ', unit: '১ কেজি প্যাকেট', regular_price: 38, cost_price: 32, discount_amount: 3, final_price: 35, is_active: true },
+    { id: 6, slot_number: 6, product_id: 11, category_id: 3, category_name: 'আটা / ময়দা', product_name: 'মুসকান ময়দা', unit: '১ কেজি প্যাকেট', regular_price: 65, cost_price: 58, discount_amount: 5, final_price: 60, is_active: true },
+    { id: 7, slot_number: 7, product_id: 23, category_id: 9, category_name: 'পেঁয়াজ', product_name: 'ইন্ডিয়ান পেঁয়াজ', unit: 'প্রতি কেজি', regular_price: 48, cost_price: 40, discount_amount: 4, final_price: 44, is_active: true },
+    { id: 8, slot_number: 8, product_id: 40, category_id: 16, category_name: 'গুঁড়ো মসলা', product_name: 'ধনিয়া গুঁড়ো', unit: '১০০গ্রাম', regular_price: 35, cost_price: 28, discount_amount: 3, final_price: 32, is_active: true },
+    { id: 9, slot_number: 9, product_id: 34, category_id: 15, category_name: 'মসলা', product_name: 'জিরা (প্রিমিয়াম)', unit: '১০০ গ্রাম', regular_price: 60, cost_price: 50, discount_amount: 5, final_price: 55, is_active: true },
+    { id: 10, slot_number: 10, product_id: 46, category_id: 18, category_name: 'নুডলস', product_name: 'ম্যাগি নুডলস', unit: 'প্যাকেট', regular_price: 25, cost_price: 20, discount_amount: 2, final_price: 23, is_active: true }
+  ] as PackageProduct[],
+  package_orders: [] as any[]
 };
 
 // Database Store Manager
@@ -394,6 +454,13 @@ export class DBManager {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS user_package_carts (
+          id SERIAL PRIMARY KEY,
+          user_id INT UNIQUE NOT NULL,
+          package_cart_json JSONB NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS delivery_areas (
           id SERIAL PRIMARY KEY,
           name VARCHAR(150) NOT NULL,
@@ -431,6 +498,62 @@ export class DBManager {
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_rider_vehicle VARCHAR(50);
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_note TEXT;
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP;
+
+        CREATE TABLE IF NOT EXISTS package_products (
+          id SERIAL PRIMARY KEY,
+          product_id INT,
+          category_id INT,
+          category_name VARCHAR(150),
+          product_name VARCHAR(150) NOT NULL,
+          unit VARCHAR(100) NOT NULL,
+          regular_price NUMERIC(10, 2) NOT NULL,
+          cost_price NUMERIC(10, 2) DEFAULT 0,
+          discount_amount NUMERIC(10, 2) DEFAULT 0,
+          final_price NUMERIC(10, 2) NOT NULL,
+          slot_number INT DEFAULT 1,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS package_orders (
+          id SERIAL PRIMARY KEY,
+          order_code VARCHAR(50) UNIQUE NOT NULL,
+          user_id INT,
+          customer_name VARCHAR(150) NOT NULL,
+          customer_phone VARCHAR(50) NOT NULL,
+          delivery_address TEXT NOT NULL,
+          delivery_area VARCHAR(100) NOT NULL,
+          payment_method VARCHAR(50) NOT NULL,
+          sender_number VARCHAR(50),
+          trx_id VARCHAR(100),
+          subtotal NUMERIC(10, 2) NOT NULL,
+          discount_total NUMERIC(10, 2) DEFAULT 0,
+          delivery_fee NUMERIC(10, 2) NOT NULL,
+          total_amount NUMERIC(10, 2) NOT NULL,
+          items_json JSONB NOT NULL,
+          status VARCHAR(50) DEFAULT 'পেন্ডিং',
+          payment_status VARCHAR(50) DEFAULT 'unverified',
+          payment_verified_at TIMESTAMP,
+          payment_verified_data JSONB,
+          delivery_rider_id INT,
+          delivery_rider_name VARCHAR(150),
+          delivery_rider_phone VARCHAR(50),
+          delivery_rider_vehicle VARCHAR(50),
+          delivery_note TEXT,
+          delivered_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Performance Indexes on orders and package_orders
+        CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
+        CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+        CREATE INDEX IF NOT EXISTS idx_orders_trx_id ON orders(trx_id);
+        CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_package_orders_user_id ON package_orders(user_id);
+        CREATE INDEX IF NOT EXISTS idx_package_orders_status ON package_orders(status);
+        CREATE INDEX IF NOT EXISTS idx_package_orders_trx_id ON package_orders(trx_id);
+        CREATE INDEX IF NOT EXISTS idx_package_orders_created_at ON package_orders(created_at DESC);
       `);
 
       // Ensure default super admin exists in admins table only if no admin exists
@@ -775,6 +898,89 @@ export class DBManager {
         // Table might not have records yet, continue safely
       }
 
+      // Hydrate user package carts
+      try {
+        const pkgCartsRes = await client.query(`SELECT * FROM user_package_carts`);
+        if (pkgCartsRes.rows.length > 0) {
+          if (!DBManager.data.package_carts) DBManager.data.package_carts = {};
+          for (const row of pkgCartsRes.rows) {
+            DBManager.data.package_carts[String(row.user_id)] = typeof row.package_cart_json === 'string' ? JSON.parse(row.package_cart_json) : (row.package_cart_json || {});
+          }
+        }
+      } catch (pkgCartErr: any) {
+        // Table might not have records yet, continue safely
+      }
+
+      // Hydrate package products
+      try {
+        const pkgProdRes = await client.query(`SELECT * FROM package_products ORDER BY slot_number ASC, id ASC`);
+        if (pkgProdRes.rows.length > 0) {
+          DBManager.data.package_products = pkgProdRes.rows.map((r: any) => ({
+            id: r.id,
+            product_id: r.product_id ? parseInt(r.product_id) : undefined,
+            category_id: r.category_id ? parseInt(r.category_id) : undefined,
+            category_name: r.category_name || '',
+            product_name: r.product_name,
+            unit: r.unit,
+            regular_price: parseFloat(r.regular_price) || 0,
+            cost_price: parseFloat(r.cost_price) || 0,
+            discount_amount: parseFloat(r.discount_amount) || 0,
+            final_price: parseFloat(r.final_price) || 0,
+            slot_number: parseInt(r.slot_number) || 1,
+            is_active: r.is_active !== false,
+            created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString()
+          }));
+        } else {
+          // Seed default 10 package products into PostgreSQL
+          for (const item of DBManager.data.package_products) {
+            await client.query(
+              `INSERT INTO package_products (product_id, category_id, category_name, product_name, unit, regular_price, cost_price, discount_amount, final_price, slot_number, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+              [item.product_id || null, item.category_id || null, item.category_name || '', item.product_name, item.unit, item.regular_price, item.cost_price, item.discount_amount, item.final_price, item.slot_number, item.is_active !== false]
+            );
+          }
+          console.log(`🌱 Seeded ${DBManager.data.package_products.length} package products to PostgreSQL.`);
+        }
+      } catch (pkgErr: any) {
+        console.warn('Notice package products hydration:', pkgErr.message);
+      }
+
+      // Hydrate package orders
+      try {
+        const pkgOrderRes = await client.query(`SELECT * FROM package_orders ORDER BY id DESC`);
+        if (pkgOrderRes.rows.length > 0) {
+          DBManager.data.package_orders = pkgOrderRes.rows.map((r: any) => ({
+            id: r.id,
+            order_code: r.order_code,
+            user_id: r.user_id ? parseInt(r.user_id) : null,
+            customer_name: r.customer_name,
+            customer_phone: r.customer_phone,
+            delivery_address: r.delivery_address,
+            delivery_area: r.delivery_area,
+            payment_method: r.payment_method,
+            sender_number: r.sender_number || '',
+            trx_id: r.trx_id || '',
+            subtotal: parseFloat(r.subtotal) || 0,
+            discount_total: parseFloat(r.discount_total) || 0,
+            delivery_fee: parseFloat(r.delivery_fee) || 0,
+            total_amount: parseFloat(r.total_amount) || 0,
+            items_json: typeof r.items_json === 'string' ? JSON.parse(r.items_json) : (r.items_json || []),
+            status: r.status,
+            delivery_rider_id: r.delivery_rider_id || null,
+            delivery_rider_name: r.delivery_rider_name || null,
+            delivery_rider_phone: r.delivery_rider_phone || null,
+            delivery_rider_vehicle: r.delivery_rider_vehicle || null,
+            delivery_note: r.delivery_note || null,
+            payment_status: r.payment_status || (r.payment_method === 'ক্যাশ অন ডেলিভারি' ? 'unpaid' : 'pending'),
+            payment_verified_at: r.payment_verified_at ? new Date(r.payment_verified_at).toISOString() : null,
+            payment_verified_data: typeof r.payment_verified_data === 'string' ? JSON.parse(r.payment_verified_data) : (r.payment_verified_data || null),
+            delivered_at: r.delivered_at ? new Date(r.delivered_at).toISOString() : null,
+            created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString()
+          }));
+        }
+      } catch (pkgOrderErr: any) {
+        console.warn('Notice package orders hydration:', pkgOrderErr.message);
+      }
+
       // Ensure PostgreSQL primary key sequences match the max IDs so auto-increment never generates duplicates or collides
       try {
         await client.query(`SELECT setval('categories_id_seq', COALESCE((SELECT MAX(id) FROM categories), 1), true)`);
@@ -785,6 +991,8 @@ export class DBManager {
         await client.query(`SELECT setval('delivery_riders_id_seq', COALESCE((SELECT MAX(id) FROM delivery_riders), 1), true)`);
         await client.query(`SELECT setval('expenses_id_seq', COALESCE((SELECT MAX(id) FROM expenses), 1), true)`);
         await client.query(`SELECT setval('orders_id_seq', COALESCE((SELECT MAX(id) FROM orders), 1), true)`);
+        await client.query(`SELECT setval('package_products_id_seq', COALESCE((SELECT MAX(id) FROM package_products), 1), true)`);
+        await client.query(`SELECT setval('package_orders_id_seq', COALESCE((SELECT MAX(id) FROM package_orders), 1), true)`);
       } catch (seqErr: any) {
         console.warn('Notice syncing sequences:', seqErr.message);
       }
@@ -1224,9 +1432,9 @@ export class DBManager {
     return rest;
   }
 
-  static createUser(user: { name: string; phone: string; password: string }) {
+  static createUser(user: { name: string; phone: string; password?: string; password_hash?: string }) {
     const newId = Math.max(0, ...this.data.users.map(u => u.id)) + 1;
-    const passwordHash = bcrypt.hashSync(user.password, 10);
+    const passwordHash = user.password_hash || (user.password ? bcrypt.hashSync(user.password, 10) : '');
     const newUser = {
       id: newId,
       name: user.name,
@@ -1246,11 +1454,11 @@ export class DBManager {
     return rest;
   }
 
-  static updateUserProfile(id: number, updates: { name?: string; password?: string }) {
+  static async updateUserProfile(id: number, updates: { name?: string; password?: string }) {
     const user = this.data.users.find(u => u.id === id);
     if (!user) return null;
     if (updates.name) user.name = updates.name;
-    if (updates.password) user.password_hash = bcrypt.hashSync(updates.password, 10);
+    if (updates.password) user.password_hash = await bcrypt.hash(updates.password, 10);
     if (isPgConnected) {
       pool.query(
         `UPDATE users SET name = $1, password_hash = $2 WHERE id = $3`,
@@ -1283,7 +1491,7 @@ export class DBManager {
     if (updates.name !== undefined && updates.name.trim()) admin.name = updates.name.trim();
     if (updates.username !== undefined && updates.username.trim()) admin.username = updates.username.trim();
     if (updates.password !== undefined && updates.password.trim()) {
-      admin.password_hash = bcrypt.hashSync(updates.password.trim(), 10);
+      admin.password_hash = await bcrypt.hash(updates.password.trim(), 10);
     }
 
     if (isPgConnected) {
@@ -1439,6 +1647,27 @@ export class DBManager {
   }
 
   // Orders
+  static isTrxIdUsed(trxId: string): { used: boolean; orderType?: 'orders' | 'package_orders'; order?: any } {
+    if (!trxId || !String(trxId).trim()) return { used: false };
+    const clean = String(trxId).trim().toUpperCase();
+
+    const regularOrder = (this.data.orders || []).find(
+      (o: any) => o.trx_id && String(o.trx_id).trim().toUpperCase() === clean
+    );
+    if (regularOrder) {
+      return { used: true, orderType: 'orders', order: regularOrder };
+    }
+
+    const packageOrder = (this.data.package_orders || []).find(
+      (o: any) => o.trx_id && String(o.trx_id).trim().toUpperCase() === clean
+    );
+    if (packageOrder) {
+      return { used: true, orderType: 'package_orders', order: packageOrder };
+    }
+
+    return { used: false };
+  }
+
   static getOrders() {
     return this.data.orders;
   }
@@ -1723,16 +1952,34 @@ export class DBManager {
   static findOrderByCode(code: string) {
     if (!code) return null;
     const cleanCode = code.trim().toUpperCase();
-    return this.data.orders.find(o => 
+    const order = this.data.orders.find(o => 
       (o.order_code && o.order_code.toUpperCase() === cleanCode) || 
+      `#${(o.order_code || '').toUpperCase()}` === cleanCode ||
       `#ORD-${o.id}`.toUpperCase() === cleanCode || 
+      `ORD-${o.id}`.toUpperCase() === cleanCode ||
       String(o.id) === cleanCode
-    ) || null;
+    );
+    if (order) return order;
+
+    // Also search package_orders if not found in orders
+    if (this.data.package_orders && Array.isArray(this.data.package_orders)) {
+      const pkg = this.data.package_orders.find(o => 
+        (o.order_code && o.order_code.toUpperCase() === cleanCode) || 
+        `#${(o.order_code || '').toUpperCase()}` === cleanCode ||
+        `#PK-${o.id}`.toUpperCase() === cleanCode || 
+        `PK-${o.id}`.toUpperCase() === cleanCode ||
+        String(o.id) === cleanCode
+      );
+      if (pkg) {
+        return { ...pkg, is_package_order: true };
+      }
+    }
+    return null;
   }
 
   // Delivery Riders CRUD
   static getDeliveryRiders() {
-    return this.data.delivery_riders;
+    return (this.data.delivery_riders || []).map(({ password_hash, ...r }) => r);
   }
 
   static findRiderByPhone(phone: string) {
@@ -1752,7 +1999,7 @@ export class DBManager {
   static async addDeliveryRider(rider: { name: string; phone: string; password?: string; vehicle?: string; area?: string; address?: string; is_active?: boolean }) {
     const newId = Math.max(0, ...this.data.delivery_riders.map(r => r.id || 0)) + 1;
     const rawPass = rider.password && rider.password.trim().length > 0 ? rider.password.trim() : '123456';
-    const password_hash = bcrypt.hashSync(rawPass, 10);
+    const password_hash = await bcrypt.hash(rawPass, 10);
 
     const newRider: DeliveryRider = {
       id: newId,
@@ -1781,7 +2028,8 @@ export class DBManager {
     }
 
     this.data.delivery_riders.push(newRider);
-    return newRider;
+    const { password_hash: _ph, ...safeRider } = newRider;
+    return safeRider;
   }
 
   static async updateDeliveryRider(id: number, updates: Partial<DeliveryRider> & { password?: string }) {
@@ -1789,9 +2037,9 @@ export class DBManager {
     if (index === -1) return null;
 
     const existing = this.data.delivery_riders[index];
-    let password_hash = existing.password_hash || bcrypt.hashSync('123456', 10);
+    let password_hash = existing.password_hash;
     if (updates.password && updates.password.trim().length > 0) {
-      password_hash = bcrypt.hashSync(updates.password.trim(), 10);
+      password_hash = await bcrypt.hash(updates.password.trim(), 10);
     }
 
     const updated: DeliveryRider = {
@@ -1813,18 +2061,23 @@ export class DBManager {
         console.warn('PG error (update rider):', err.message);
       }
     }
-    return updated;
+
+    const { password_hash: _ph, ...safeRider } = updated;
+    return safeRider;
   }
 
   static async updateRiderPassword(id: number, oldPass: string, newPass: string) {
     const rider = this.data.delivery_riders.find(r => r.id === id);
     if (!rider) throw new Error('রাইডার পাওয়া যায়নি');
     
-    if (rider.password_hash && !bcrypt.compareSync(oldPass, rider.password_hash)) {
-      throw new Error('বর্তমান পাসওয়ার্ড সঠিক নয়');
+    if (rider.password_hash) {
+      const match = await bcrypt.compare(oldPass, rider.password_hash);
+      if (!match) {
+        throw new Error('বর্তমান পাসওয়ার্ড সঠিক নয়');
+      }
     }
 
-    const newHash = bcrypt.hashSync(newPass, 10);
+    const newHash = await bcrypt.hash(newPass, 10);
     rider.password_hash = newHash;
 
     if (isPgConnected) {
@@ -1840,23 +2093,61 @@ export class DBManager {
   static getRiderOrders(riderId: number) {
     const rider = this.data.delivery_riders.find(r => r.id === riderId);
     const cleanPhone = rider?.phone ? rider.phone.replace(/[^0-9]/g, '') : '';
-    return this.data.orders.filter(o => {
+
+    const regularOrders = (this.data.orders || []).filter(o => {
       if (o.delivery_rider_id && Number(o.delivery_rider_id) === Number(riderId)) return true;
       if (cleanPhone && o.delivery_rider_phone && o.delivery_rider_phone.replace(/[^0-9]/g, '') === cleanPhone) return true;
       return false;
-    });
+    }).map(o => ({ ...o, is_package_order: false, order_type: 'regular' }));
+
+    const packageOrders = (this.data.package_orders || []).filter(o => {
+      if (o.delivery_rider_id && Number(o.delivery_rider_id) === Number(riderId)) return true;
+      if (cleanPhone && o.delivery_rider_phone && o.delivery_rider_phone.replace(/[^0-9]/g, '') === cleanPhone) return true;
+      return false;
+    }).map(o => ({ ...o, is_package_order: true, order_type: 'package' }));
+
+    return [...regularOrders, ...packageOrders].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   }
 
-  static async updateRiderOrderStatus(riderId: number, orderId: number, status: string, note?: string) {
-    const order = this.data.orders.find(o => o.id === orderId);
-    if (!order) return null;
-
+  static async updateRiderOrderStatus(riderId: number, orderId: number, status: string, note?: string, isPackageOrder?: boolean) {
     const rider = this.data.delivery_riders.find(r => r.id === riderId);
     const cleanPhone = rider?.phone ? rider.phone.replace(/[^0-9]/g, '') : '';
-    const isAssigned = (order.delivery_rider_id && Number(order.delivery_rider_id) === Number(riderId)) ||
-      (cleanPhone && order.delivery_rider_phone && order.delivery_rider_phone.replace(/[^0-9]/g, '') === cleanPhone);
 
-    if (!isAssigned) {
+    const isAssigned = (o: any) => {
+      if (!o) return false;
+      return (o.delivery_rider_id && Number(o.delivery_rider_id) === Number(riderId)) ||
+        (cleanPhone && o.delivery_rider_phone && o.delivery_rider_phone.replace(/[^0-9]/g, '') === cleanPhone);
+    };
+
+    let order: any = null;
+    let isPackage = false;
+
+    if (isPackageOrder === true) {
+      order = (this.data.package_orders || []).find(o => o.id === orderId);
+      isPackage = true;
+    } else if (isPackageOrder === false) {
+      order = (this.data.orders || []).find(o => o.id === orderId);
+      isPackage = false;
+    } else {
+      // If no explicit hint, check assigned status first to prevent ID collision
+      const stdOrder = (this.data.orders || []).find(o => o.id === orderId);
+      const pkgOrder = (this.data.package_orders || []).find(o => o.id === orderId);
+
+      if (stdOrder && isAssigned(stdOrder)) {
+        order = stdOrder;
+        isPackage = false;
+      } else if (pkgOrder && isAssigned(pkgOrder)) {
+        order = pkgOrder;
+        isPackage = true;
+      } else {
+        order = stdOrder || pkgOrder;
+        isPackage = (order === pkgOrder);
+      }
+    }
+
+    if (!order) return null;
+
+    if (!isAssigned(order)) {
       throw new Error('এই অর্ডারটি আপনার আইডিতে অ্যাসাইন করা নেই');
     }
 
@@ -1866,19 +2157,23 @@ export class DBManager {
     }
     if (status === 'delivered' || status === 'ডেলিভার্ড') {
       order.delivered_at = new Date().toISOString();
+      if (order.payment_status === 'unpaid') {
+        order.payment_status = 'paid';
+      }
     }
 
     if (isPgConnected) {
       try {
+        const table = isPackage ? 'package_orders' : 'orders';
         await pool.query(
-          `UPDATE orders SET status = $1, delivery_note = $2, delivered_at = $3 WHERE id = $4`,
-          [order.status, order.delivery_note || null, order.delivered_at || null, orderId]
+          `UPDATE ${table} SET status = $1, delivery_note = $2, delivered_at = $3, payment_status = $4 WHERE id = $5`,
+          [order.status, order.delivery_note || null, order.delivered_at || null, order.payment_status || 'unpaid', orderId]
         );
       } catch (e: any) {
         console.warn('PG sync error (rider order status):', e.message);
       }
     }
-    return order;
+    return { ...order, is_package_order: isPackage };
   }
 
   static async deleteDeliveryRider(id: number) {
@@ -2076,6 +2371,301 @@ export class DBManager {
       ).catch((e: any) => console.warn('PG sync error (user_carts):', e.message));
     }
     return safeData;
+  }
+
+  // Package Cart syncing
+  static getUserPackageCart(userId: number) {
+    if (!this.data) this.data = {} as any;
+    if (!this.data.package_carts) this.data.package_carts = {};
+    return this.data.package_carts[String(userId)] || {};
+  }
+
+  static saveUserPackageCart(userId: number, packageCartData: any) {
+    if (!this.data) this.data = {} as any;
+    if (!this.data.package_carts) this.data.package_carts = {};
+    const safeData = packageCartData || {};
+    this.data.package_carts[String(userId)] = safeData;
+
+    if (isPgConnected && pool && userId) {
+      pool.query(
+        `INSERT INTO user_package_carts (user_id, package_cart_json, updated_at) 
+         VALUES ($1, $2, CURRENT_TIMESTAMP) 
+         ON CONFLICT (user_id) 
+         DO UPDATE SET package_cart_json = EXCLUDED.package_cart_json, updated_at = CURRENT_TIMESTAMP`,
+        [userId, JSON.stringify(safeData)]
+      ).catch((e: any) => console.warn('PG sync error (user_package_carts):', e.message));
+    }
+    return safeData;
+  }
+
+  // Package Products Management (10 slots for the Hero Package Box)
+  static getPackageProducts() {
+    if (!this.data.package_products) this.data.package_products = [];
+    return [...this.data.package_products].sort((a, b) => a.slot_number - b.slot_number);
+  }
+
+  static getPackageProductById(id: number) {
+    if (!this.data.package_products) return null;
+    return this.data.package_products.find(p => p.id === id) || null;
+  }
+
+  static async addOrUpdatePackageProduct(data: any) {
+    if (!this.data.package_products) this.data.package_products = [];
+    const regular_price = Number(data.regular_price) || 0;
+    const cost_price = Number(data.cost_price) || 0;
+    const discount_amount = Number(data.discount_amount) || 0;
+    const final_price = Math.max(0, regular_price - discount_amount);
+    const slot_number = Math.min(10, Math.max(1, Number(data.slot_number) || 1));
+
+    let item: PackageProduct | undefined = undefined;
+    if (data.id) {
+      item = this.data.package_products.find(p => p.id === Number(data.id));
+    }
+    if (!item && data.slot_number) {
+      item = this.data.package_products.find(p => p.slot_number === slot_number);
+    }
+
+    if (item) {
+      item.product_id = data.product_id ? Number(data.product_id) : item.product_id;
+      item.category_id = data.category_id ? Number(data.category_id) : item.category_id;
+      item.category_name = data.category_name || item.category_name || '';
+      item.product_name = data.product_name || item.product_name;
+      item.unit = data.unit || item.unit;
+      item.regular_price = regular_price;
+      item.cost_price = cost_price;
+      item.discount_amount = discount_amount;
+      item.final_price = final_price;
+      item.slot_number = slot_number;
+      item.is_active = data.is_active !== undefined ? Boolean(data.is_active) : true;
+
+      if (isPgConnected && item.id) {
+        pool.query(
+          `UPDATE package_products SET product_id = $1, category_id = $2, category_name = $3, product_name = $4, unit = $5, regular_price = $6, cost_price = $7, discount_amount = $8, final_price = $9, slot_number = $10, is_active = $11 WHERE id = $12`,
+          [item.product_id || null, item.category_id || null, item.category_name || '', item.product_name, item.unit, regular_price, cost_price, discount_amount, final_price, slot_number, item.is_active, item.id]
+        ).catch((e: any) => console.warn('PG sync error (package product update):', e.message));
+      }
+      return item;
+    } else {
+      const newId = Math.max(0, ...this.data.package_products.map(p => p.id || 0)) + 1;
+      const newItem: PackageProduct = {
+        id: newId,
+        product_id: data.product_id ? Number(data.product_id) : undefined,
+        category_id: data.category_id ? Number(data.category_id) : undefined,
+        category_name: data.category_name || '',
+        product_name: data.product_name,
+        unit: data.unit,
+        regular_price,
+        cost_price,
+        discount_amount,
+        final_price,
+        slot_number,
+        is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
+        created_at: new Date().toISOString()
+      };
+      this.data.package_products.push(newItem);
+
+      if (isPgConnected) {
+        try {
+          const res = await pool.query(
+            `INSERT INTO package_products (product_id, category_id, category_name, product_name, unit, regular_price, cost_price, discount_amount, final_price, slot_number, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+            [newItem.product_id || null, newItem.category_id || null, newItem.category_name || '', newItem.product_name, newItem.unit, regular_price, cost_price, discount_amount, final_price, slot_number, newItem.is_active]
+          );
+          if (res.rows[0]?.id) newItem.id = res.rows[0].id;
+        } catch (e: any) {
+          console.warn('PG sync error (package product insert):', e.message);
+        }
+      }
+      return newItem;
+    }
+  }
+
+  static async deletePackageProduct(id: number) {
+    if (!this.data.package_products) return false;
+    const index = this.data.package_products.findIndex(p => p.id === id);
+    if (index !== -1) {
+      this.data.package_products.splice(index, 1);
+    }
+    if (isPgConnected) {
+      pool.query(`DELETE FROM package_products WHERE id = $1`, [id]).catch((e: any) => console.warn('PG sync error (package product delete):', e.message));
+    }
+    return true;
+  }
+
+  // Package Orders Management (dedicated package orders)
+  static getPackageOrders() {
+    if (!this.data.package_orders) this.data.package_orders = [];
+    return [...this.data.package_orders].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  }
+
+  static getPackageOrdersByUserId(userId: number) {
+    if (!this.data.package_orders) this.data.package_orders = [];
+    return this.data.package_orders.filter(o => o.user_id === userId);
+  }
+
+  static async createPackageOrder(order: any) {
+    if (!this.data.package_orders) this.data.package_orders = [];
+    // Stock decrement for linked items
+    const items = Array.isArray(order.items_json) ? order.items_json : [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      let brand: any = null;
+      const pId = item.productId || item.product_id || item.id;
+      if (pId) {
+        for (const cat of this.data.categories) {
+          const b = cat.brands.find((b: any) => b.id === pId);
+          if (b) {
+            brand = b;
+            break;
+          }
+        }
+      }
+      if (!brand && item.brand) {
+        for (const cat of this.data.categories) {
+          const b = cat.brands.find((b: any) => b.name === item.brand || b.name === item.product_name);
+          if (b) {
+            brand = b;
+            break;
+          }
+        }
+      }
+
+      if (brand) {
+        if (brand.force_stock_out || (brand.stock !== undefined && brand.stock < item.qty)) {
+          throw new Error(`'${item.brand || item.product_name || brand.name}' এর স্টক পর্যাপ্ত নয় (বর্তমান স্টক: ${brand.stock || 0})`);
+        }
+        items[i].cost_price = brand.cost_price || 0;
+        if (brand.id) items[i].productId = brand.id;
+        brand.stock = (brand.stock || 100) - item.qty;
+        if (isPgConnected && brand.id) {
+          pool.query(`UPDATE product_brands SET stock = stock - $1 WHERE id = $2`, [item.qty, brand.id]).catch((e: any) => console.warn('PG sync error (package stock decrement):', e.message));
+        }
+      }
+    }
+
+    const newId = Math.max(0, ...this.data.package_orders.map(o => o.id || 0)) + 1;
+    const orderCode = 'PK-' + Math.floor(100000 + Math.random() * 900000);
+    const newOrder: PackageOrder = {
+      id: newId,
+      order_code: orderCode,
+      user_id: order.user_id ? Number(order.user_id) : null,
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone,
+      delivery_address: order.delivery_address,
+      delivery_area: order.delivery_area,
+      payment_method: order.payment_method,
+      sender_number: order.sender_number || '',
+      trx_id: order.trx_id || '',
+      subtotal: Number(order.subtotal) || 0,
+      discount_total: Number(order.discount_total) || 0,
+      delivery_fee: Number(order.delivery_fee) || 0,
+      total_amount: Number(order.total_amount) || 0,
+      items_json: items,
+      status: 'পেন্ডিং',
+      payment_status: order.payment_status || (order.payment_method === 'ক্যাশ অন ডেলিভারি' ? 'unpaid' : 'pending'),
+      payment_verified_at: order.payment_verified_at || null,
+      payment_verified_data: order.payment_verified_data || null,
+      created_at: new Date().toISOString()
+    };
+
+    this.data.package_orders.unshift(newOrder);
+
+    if (isPgConnected) {
+      try {
+        const res = await pool.query(
+          `INSERT INTO package_orders (order_code, user_id, customer_name, customer_phone, delivery_address, delivery_area, payment_method, sender_number, trx_id, subtotal, discount_total, delivery_fee, total_amount, items_json, status, payment_status, payment_verified_at, payment_verified_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
+          [
+            newOrder.order_code,
+            newOrder.user_id || null,
+            newOrder.customer_name,
+            newOrder.customer_phone,
+            newOrder.delivery_address,
+            newOrder.delivery_area,
+            newOrder.payment_method,
+            newOrder.sender_number || '',
+            newOrder.trx_id || '',
+            newOrder.subtotal,
+            newOrder.discount_total || 0,
+            newOrder.delivery_fee,
+            newOrder.total_amount,
+            JSON.stringify(newOrder.items_json),
+            newOrder.status,
+            newOrder.payment_status,
+            newOrder.payment_verified_at,
+            newOrder.payment_verified_data ? JSON.stringify(newOrder.payment_verified_data) : null
+          ]
+        );
+        if (res.rows[0]?.id) newOrder.id = res.rows[0].id;
+      } catch (e: any) {
+        console.warn('PG sync error (package order create):', e.message);
+      }
+    }
+
+    return newOrder;
+  }
+
+  static async updatePackageOrderStatus(orderId: number, status: string, riderInfo?: any) {
+    if (!this.data.package_orders) return null;
+    const order = this.data.package_orders.find(o => o.id === orderId);
+    if (order) {
+      order.status = status;
+      if (riderInfo) {
+        if (riderInfo.rider_id !== undefined) order.delivery_rider_id = riderInfo.rider_id;
+        if (riderInfo.rider_name !== undefined) order.delivery_rider_name = riderInfo.rider_name;
+        if (riderInfo.rider_phone !== undefined) order.delivery_rider_phone = riderInfo.rider_phone;
+        if (riderInfo.rider_vehicle !== undefined) order.delivery_rider_vehicle = riderInfo.rider_vehicle;
+        if (riderInfo.delivery_note !== undefined) order.delivery_note = riderInfo.delivery_note;
+      }
+      if (status === 'ডেলিভার্ড' && !order.delivered_at) {
+        order.delivered_at = new Date().toISOString();
+        if (order.payment_status === 'unpaid') order.payment_status = 'paid';
+      }
+
+      if (isPgConnected) {
+        pool.query(
+          `UPDATE package_orders SET status = $1, delivery_rider_id = $2, delivery_rider_name = $3, delivery_rider_phone = $4, delivery_rider_vehicle = $5, delivery_note = $6, delivered_at = $7, payment_status = $8 WHERE id = $9`,
+          [order.status, order.delivery_rider_id || null, order.delivery_rider_name || null, order.delivery_rider_phone || null, order.delivery_rider_vehicle || null, order.delivery_note || null, order.delivered_at || null, order.payment_status, order.id]
+        ).catch((e: any) => console.warn('PG sync error (package order status):', e.message));
+      }
+      return order;
+    }
+    return null;
+  }
+
+  static async assignRiderToPackageOrder(orderId: number, riderId: number) {
+    if (!this.data.package_orders) return null;
+    const order = this.data.package_orders.find(o => o.id === orderId);
+    const rider = (this.data.delivery_riders || []).find(r => r.id === riderId);
+    if (!order || !rider) return null;
+
+    order.delivery_rider_id = rider.id;
+    order.delivery_rider_name = rider.name;
+    order.delivery_rider_phone = rider.phone;
+    order.delivery_rider_vehicle = rider.vehicle;
+    if (order.status === 'পেন্ডিং') order.status = 'প্রসেসিং';
+
+    if (isPgConnected) {
+      pool.query(
+        `UPDATE package_orders SET delivery_rider_id = $1, delivery_rider_name = $2, delivery_rider_phone = $3, delivery_rider_vehicle = $4, status = $5 WHERE id = $6`,
+        [rider.id, rider.name, rider.phone, rider.vehicle, order.status, order.id]
+      ).catch((e: any) => console.warn('PG sync error (package rider assign):', e.message));
+    }
+    return order;
+  }
+
+  static findPackageOrderByCode(code: string) {
+    if (!code || !this.data.package_orders || !Array.isArray(this.data.package_orders)) return null;
+    const clean = code.trim().toUpperCase();
+    const pkg = this.data.package_orders.find(o => 
+      (o.order_code && o.order_code.toUpperCase() === clean) ||
+      `#${(o.order_code || '').toUpperCase()}` === clean ||
+      `#PK-${o.id}`.toUpperCase() === clean ||
+      `PK-${o.id}`.toUpperCase() === clean ||
+      String(o.id) === clean
+    );
+    if (pkg) {
+      return { ...pkg, is_package_order: true };
+    }
+    return null;
   }
 }
 

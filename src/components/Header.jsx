@@ -25,6 +25,11 @@ export default function Header({
 
   const { totalCount, setIsCartOpen, cartCountBump } = useCart();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const el = headerRef.current;
@@ -128,7 +133,7 @@ export default function Header({
 
           {/* Header Action Buttons */}
           <div className="header-actions">
-            {user ? (
+            {mounted && user ? (
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -161,8 +166,8 @@ export default function Header({
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
               <ShoppingCart size={17} /> <span className="cart-btn-text">কার্ট</span>
-              <span className={`count ${cartCountBump ? 'bump' : ''}`}>
-                {toBengaliNumber(totalCount)}
+              <span className={`count ${cartCountBump ? 'bump' : ''}`} suppressHydrationWarning>
+                {mounted ? toBengaliNumber(totalCount) : '০'}
               </span>
             </motion.button>
           </div>

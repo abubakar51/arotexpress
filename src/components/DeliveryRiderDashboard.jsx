@@ -94,7 +94,11 @@ export default function DeliveryRiderDashboard({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
         
         {/* Total Assigned */}
-        <div className="admin-card" style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #3b82f6' }}>
+        <div
+          className="admin-card"
+          style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #3b82f6', cursor: 'pointer', transition: 'transform 0.2s' }}
+          onClick={() => onNavigateTab('orders', 'all')}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>মোট অ্যাসাইন করা</span>
             <span style={{ background: '#eff6ff', color: '#3b82f6', padding: '6px', borderRadius: '8px' }}>
@@ -110,7 +114,11 @@ export default function DeliveryRiderDashboard({
         </div>
 
         {/* Pending / In Progress */}
-        <div className="admin-card" style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #eab308' }}>
+        <div
+          className="admin-card"
+          style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #eab308', cursor: 'pointer', transition: 'transform 0.2s' }}
+          onClick={() => onNavigateTab('orders', 'active')}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>ডেলিভারি বাকি (চলমান)</span>
             <span style={{ background: '#fefce8', color: '#ca8a04', padding: '6px', borderRadius: '8px' }}>
@@ -121,39 +129,47 @@ export default function DeliveryRiderDashboard({
             {toBengaliNumber(activeOrders.length)} <span style={{ fontSize: '13px', fontWeight: 500 }}>টি</span>
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '4px' }}>
-            এখনো ডেলিভারি সম্পন্ন হয়নি
+            পেন্ডিং ক্যাশ: <strong>৳{toBengaliNumber(pendingCashToCollect)}</strong>
           </div>
         </div>
 
-        {/* Completed / Delivered */}
-        <div className="admin-card" style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #22c55e' }}>
+        {/* Today's Delivered */}
+        <div
+          className="admin-card"
+          style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #10b981', cursor: 'pointer', transition: 'transform 0.2s' }}
+          onClick={() => onNavigateTab('orders', 'today')}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>সফল ডেলিভারি</span>
-            <span style={{ background: '#f0fdf4', color: '#16a34a', padding: '6px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>আজকের ডেলিভারি</span>
+            <span style={{ background: '#ecfdf5', color: '#10b981', padding: '6px', borderRadius: '8px' }}>
               <CheckCircle2 size={18} />
             </span>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 800, color: '#16a34a' }}>
-            {toBengaliNumber(deliveredOrders.length)} <span style={{ fontSize: '13px', fontWeight: 500 }}>টি</span>
+          <div style={{ fontSize: '26px', fontWeight: 800, color: '#10b981' }}>
+            {toBengaliNumber(todayDelivered.length)} <span style={{ fontSize: '13px', fontWeight: 500 }}>টি</span>
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '4px' }}>
-            আজ সম্পন্ন: <strong>{toBengaliNumber(todayDelivered.length)} টি</strong>
+            মোট সম্পন্ন: <strong>{toBengaliNumber(deliveredOrders.length)} টি</strong>
           </div>
         </div>
 
-        {/* Cash Collected */}
-        <div className="admin-card" style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #059669' }}>
+        {/* Pending Cash Collection */}
+        <div
+          className="admin-card"
+          style={{ padding: '16px', borderRadius: '10px', borderLeft: '4px solid #f97316', cursor: 'pointer', transition: 'transform 0.2s' }}
+          onClick={() => onNavigateTab('orders', 'pending_cash')}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>গৃহীত ক্যাশ (সংগৃহীত)</span>
-            <span style={{ background: '#ecfdf5', color: '#059669', padding: '6px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>পেন্ডিং ক্যাশ কালেকশন</span>
+            <span style={{ background: '#fff7ed', color: '#f97316', padding: '6px', borderRadius: '8px' }}>
               <Banknote size={18} />
             </span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: '#059669' }}>
-            ৳{toBengaliNumber(totalCashCollected)}
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#ea580c' }}>
+            ৳{toBengaliNumber(pendingCashToCollect)}
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '4px' }}>
-            বাকি কালেকশন: ৳{toBengaliNumber(pendingCashToCollect)}
+            সংগৃহীত ক্যাশ: ৳{toBengaliNumber(totalCashCollected)}
           </div>
         </div>
 
@@ -196,7 +212,7 @@ export default function DeliveryRiderDashboard({
               const isCOD = !order.payment_method || order.payment_method.toLowerCase().includes('cash') || order.payment_method.includes('ক্যাশ');
               return (
                 <div
-                  key={order.id}
+                  key={order.order_code ? `rider-dash-${order.order_code}` : `rider-dash-${order.is_package ? 'pkg' : 'reg'}-${order.id}`}
                   style={{
                     border: '1px solid var(--rule)',
                     borderRadius: '8px',
@@ -212,9 +228,16 @@ export default function DeliveryRiderDashboard({
                   <div>
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <span className="mono" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--green)' }}>
-                        {order.order_code || `#ORD-${order.id}`}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="mono" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--green)' }}>
+                          {order.order_code || `#ORD-${order.id}`}
+                        </span>
+                        {(order.is_package || order.isPackage || (order.order_code && order.order_code.startsWith('PK-'))) && (
+                          <span style={{ fontSize: '10px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', padding: '1px 5px', fontWeight: 700 }}>
+                            প্যাকেজ
+                          </span>
+                        )}
+                      </div>
                       <span
                         style={{
                           fontSize: '11px',

@@ -92,3 +92,32 @@ export function formatStockDisplay(stockQty, unit = '') {
   const cleanUnit = trimmed.replace(/^প্রতি\s*/, '');
   return `${numStr} ${cleanUnit || 'টি'}`;
 }
+
+/**
+ * Normalizes any order status (Bengali or English) into standard lowercase canonical key:
+ * 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+ */
+export function normalizeOrderStatus(status) {
+  const s = String(status || '').toLowerCase().trim();
+  if (s === 'pending' || s === 'পেন্ডিং') return 'pending';
+  if (s === 'processing' || s === 'প্রসেসিং') return 'processing';
+  if (s === 'shipped' || s === 'পাঠানো হয়েছে' || s === 'ডেলিভারিতে আছে' || s === 'ডেলিভারিতে পাঠানো হয়েছে' || s === 'অন-ওয়ে' || s === 'অন-ডেলিভারি') return 'shipped';
+  if (s === 'delivered' || s === 'ডেলিভার্ড' || s === 'সম্পন্ন' || s === 'ডেলিভারি সম্পন্ন') return 'delivered';
+  if (s === 'cancelled' || s === 'বাতিল') return 'cancelled';
+  return s || 'pending';
+}
+
+/**
+ * Returns human-readable Bengali label for any order status
+ */
+export function getOrderStatusBn(status) {
+  const norm = normalizeOrderStatus(status);
+  switch (norm) {
+    case 'pending': return 'পেন্ডিং';
+    case 'processing': return 'প্রসেসিং';
+    case 'shipped': return 'পাঠানো হয়েছে';
+    case 'delivered': return 'ডেলিভার্ড';
+    case 'cancelled': return 'বাতিল';
+    default: return status || 'পেন্ডিং';
+  }
+}

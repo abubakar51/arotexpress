@@ -12,7 +12,8 @@ import {
   X,
   ShieldAlert,
   ShieldCheck,
-  Loader2
+  Loader2,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
@@ -26,7 +27,39 @@ export default function CheckoutView({
   defaultDeliveryFee: propDefaultDeliveryFee
 }) {
   const { user, token, openAuthModal } = useAuth();
-  const { cart, subtotal, clearCart, showToast } = useCart();
+  const { cart, subtotal: cartSubtotal, clearCart, showToast } = useCart();
+
+  const [packageOrderData, setPackageOrderData] = useState(null);
+
+  // Check for package order session on mount ONLY IF ?mode=package is present in URL
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isPackageMode = urlParams.get('mode') === 'package';
+
+        if (isPackageMode) {
+          const stored = sessionStorage.getItem('package_order_data') || localStorage.getItem('arot_active_package_order');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+              setPackageOrderData(parsed);
+              return;
+            }
+          }
+        }
+
+        // Standard cart checkout: ensure package order data is NEVER used
+        setPackageOrderData(null);
+        sessionStorage.removeItem('package_order_data');
+        localStorage.removeItem('arot_active_package_order');
+      }
+    } catch (e) {
+      console.error('Failed to load package order data:', e);
+    }
+  }, []);
+
+  const isPackageOrder = Boolean(packageOrderData && packageOrderData.items && packageOrderData.items.length > 0);
 
   const [name, setName] = useState(user ? user.name : '');
   const [phone, setPhone] = useState(user ? user.phone : '');
@@ -66,6 +99,19 @@ export default function CheckoutView({
   }, [user]);
 
   const cartEntries = Object.entries(cart);
+
+  // Determine active subtotal based on package order vs regular cart
+  const subtotal = isPackageOrder
+    ? (Number(packageOrderData.package_subtotal) || Number(packageOrderData.subtotal) || 0)
+    : cartSubtotal;
+
+  const packageRegularTotal = isPackageOrder
+    ? (Number(packageOrderData.subtotal) || subtotal)
+    : 0;
+
+  const discountTotal = isPackageOrder
+    ? (Number(packageOrderData.discount_total) || 0)
+    : 0;
 
   // Calculate dynamic delivery fee based on selected area or default fee
   const selectedAreaObj = deliveryAreas.find((a) => a.name === area);
@@ -120,6 +166,44 @@ export default function CheckoutView({
 
     setSubmitting(true);
     try {
+      // If this is a package order
+      if (isPackageOrder) {
+        const res = await fetch('/api/package-orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            customer_name: name.trim(),
+            customer_phone: phone.trim(),
+            delivery_address: address.trim(),
+            delivery_area: area,
+            payment_method: selectedPaymentCode === 'cod' ? 'ক্যাশ অন ডেলিভারি' : (currentPaymentMethod ? currentPaymentMethod.name_bn : 'ক্যাশ অন ডেলিভারি'),
+            sender_number: senderNumber.trim() || null,
+            trx_id: trxId.trim() || null,
+            items: packageOrderData.items,
+            subtotal: packageRegularTotal,
+            discount_total: discountTotal,
+            delivery_fee: deliveryFee,
+            total_amount: totalAmount
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'প্যাকেজ অর্ডার করতে সমস্যা হয়েছে');
+        }
+
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('package_order_data');
+        }
+        showToast('আপনার প্যাকেজ অর্ডার সফল হয়েছে!');
+        onOrderSuccess(data);
+        return;
+      }
+
+      // Standard Cart Order
       const items = cartEntries.map(([key, item]) => ({
         key,
         productId: item.productId || item.brandId || item.id || null,
@@ -169,7 +253,18 @@ export default function CheckoutView({
         throw new Error(data.error || 'অর্ডার করতে সমস্যা হয়েছে');
       }
 
-      clearCart();
+      try {
+        sessionStorage.removeItem('package_order_data');
+        localStorage.removeItem('arot_active_package_order');
+        if (isPackageOrder) {
+          localStorage.removeItem('arot_package_box_quantities');
+          window.dispatchEvent(new Event('arot_package_cleared'));
+        }
+      } catch (e) {}
+
+      if (!isPackageOrder) {
+        clearCart();
+      }
       onOrderSuccess(data);
     } catch (err) {
       showToast(err.message || 'অর্ডার করতে সমস্যা হয়েছে');
@@ -485,15 +580,82 @@ export default function CheckoutView({
           </form>
 
           <div className="co-summary">
-            <h3>অর্ডার সামারি</h3>
-            {cartEntries.map(([key, it]) => (
-              <div className="co-row" key={key}>
-                <span>
-                  {it.brand} ×{toBengaliNumber(it.qty)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ margin: 0 }}>অর্ডার সামারি</h3>
+              {isPackageOrder && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    background: '#dcfce7',
+                    color: '#15803d',
+                    padding: '2px 8px',
+                    borderRadius: '12px'
+                  }}
+                >
+                  <Package size={12} /> প্যাকেজ অফার
                 </span>
-                <span className="mono">৳{toBengaliNumber(it.price * it.qty)}</span>
+              )}
+            </div>
+
+            {isPackageOrder ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                {packageOrderData.items.map((it, idx) => (
+                  <div className="co-row" key={idx} style={{ alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text)' }}>
+                        {it.product_name || it.brand} ×{toBengaliNumber(it.qty)}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                        একক: {it.unit}
+                        {it.regular_price > it.final_price && (
+                          <span style={{ textDecoration: 'line-through', marginLeft: '6px' }}>
+                            ৳{toBengaliNumber(it.regular_price * it.qty)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className="mono" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                        ৳{toBengaliNumber((it.final_price || it.price) * it.qty)}
+                      </span>
+                      {it.discount_amount > 0 && (
+                        <div style={{ fontSize: '11px', color: '#15803d', fontWeight: 600 }}>
+                          -৳{toBengaliNumber(it.discount_amount * it.qty)} ছাড়
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {packageRegularTotal > subtotal && (
+                  <div className="co-row" style={{ color: 'var(--muted)', fontSize: '13px' }}>
+                    <span>নিয়মিত মূল্য</span>
+                    <span className="mono">৳{toBengaliNumber(packageRegularTotal)}</span>
+                  </div>
+                )}
+
+                {discountTotal > 0 && (
+                  <div className="co-row" style={{ color: '#15803d', fontWeight: 600 }}>
+                    <span>প্যাকেজ বিশেষ ছাড়</span>
+                    <span className="mono">-৳{toBengaliNumber(discountTotal)}</span>
+                  </div>
+                )}
               </div>
-            ))}
+            ) : (
+              cartEntries.map(([key, it]) => (
+                <div className="co-row" key={key}>
+                  <span>
+                    {it.brand} ×{toBengaliNumber(it.qty)}
+                  </span>
+                  <span className="mono">৳{toBengaliNumber(it.price * it.qty)}</span>
+                </div>
+              ))
+            )}
+
             <div className="co-row">
               <span>ডেলিভারি চার্জ</span>
               <span className="mono">৳{toBengaliNumber(deliveryFee)}</span>
@@ -502,6 +664,31 @@ export default function CheckoutView({
               <span>সর্বমোট</span>
               <span>৳{toBengaliNumber(totalAmount)}</span>
             </div>
+
+            {isPackageOrder && (
+              <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--rule)', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      sessionStorage.removeItem('package_order_data');
+                    }
+                    setPackageOrderData(null);
+                    onBackToShop();
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--muted)',
+                    fontSize: '12px',
+                    textDecoration: 'underline',
+                    cursor: 'pointer'
+                  }}
+                >
+                  প্যাকেজ পরিবর্তন করতে মূল দোকানে ফিরে যান
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>

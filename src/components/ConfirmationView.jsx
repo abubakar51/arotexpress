@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Check, CheckCircle2, ArrowRight, Printer, Navigation, Copy, CheckCheck } from 'lucide-react';
 import { toBengaliNumber } from '../utils/bengali.js';
+import { copyToClipboard } from '../utils/clipboard.js';
 import CustomerInvoiceModal from './CustomerInvoiceModal.jsx';
 import OrderTrackingModal from './OrderTrackingModal.jsx';
 
@@ -13,12 +14,13 @@ export default function ConfirmationView({ order, onContinueShopping }) {
 
   if (!order) return null;
 
-  const handleCopyCode = () => {
+  const handleCopyCode = async () => {
     if (order.order_code) {
-      navigator.clipboard.writeText(order.order_code).then(() => {
+      const success = await copyToClipboard(order.order_code);
+      if (success) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      }).catch(() => {});
+      }
     }
   };
 

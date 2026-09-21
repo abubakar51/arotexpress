@@ -211,9 +211,9 @@ export default function CustomerInvoiceModal({ isOpen = true, order, settings, o
                       {toBengaliNumber(idx + 1)}
                     </td>
                     <td style={{ padding: '7px 8px' }}>
-                      <div style={{ fontWeight: 700, color: '#111827' }}>{it.brand}</div>
+                      <div style={{ fontWeight: 700, color: '#111827' }}>{it.brand || it.product_name || it.name}</div>
                       <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '1px' }}>
-                        {it.catBn ? `${it.catBn} · ` : ''}{it.unit || ''}
+                        {(it.catBn || it.category_name ? `${it.catBn || it.category_name} · ` : '') + (it.unit || '')}
                       </div>
                     </td>
                     <td className="mono" style={{ padding: '7px 8px', textAlign: 'center', fontWeight: 600 }}>
@@ -247,6 +247,12 @@ export default function CustomerInvoiceModal({ isOpen = true, order, settings, o
                 <span style={{ color: '#6b7280' }}>পণ্যের মূল্য:</span>
                 <span className="mono font-bold">৳{toBengaliNumber(subtotal)}</span>
               </div>
+              {order.discount_total > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '4px', color: '#16a34a' }}>
+                  <span>প্যাকেজ ছাড়:</span>
+                  <span className="mono font-bold">-৳{toBengaliNumber(order.discount_total)}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '4px' }}>
                 <span style={{ color: '#6b7280' }}>ডেলিভারি চার্জ:</span>
                 <span className="mono font-bold">৳{toBengaliNumber(deliveryFee)}</span>

@@ -190,10 +190,10 @@ export default function PosReceiptModal({ order, settings: initialSettings, onCl
                   <tr key={idx}>
                     <td style={{ textAlign: 'left' }}>
                       <div style={{ fontWeight: 600 }}>
-                        {it.productId ? <span style={{ color: '#666', fontSize: '11px', marginRight: '4px' }}>#{it.productId}</span> : null}
-                        {it.brand || it.name}
+                        {it.productId || it.product_id ? <span style={{ color: '#666', fontSize: '11px', marginRight: '4px' }}>#{it.productId || it.product_id}</span> : null}
+                        {it.brand || it.product_name || it.name}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#555' }}>({it.catBn || it.unit})</div>
+                      <div style={{ fontSize: '11px', color: '#555' }}>({it.catBn || it.category_name || it.unit})</div>
                     </td>
                     <td style={{ textAlign: 'center', fontSize: '11.5px' }}>{it.unit || '—'}</td>
                     <td style={{ textAlign: 'center', fontWeight: 600 }} className="mono">
@@ -215,6 +215,12 @@ export default function PosReceiptModal({ order, settings: initialSettings, onCl
                 <span>পণ্যের উপমোট (Subtotal):</span>
                 <span className="mono">৳{toBengaliNumber(order.subtotal || (order.total_amount - (order.delivery_fee || 0)))}</span>
               </div>
+              {order.discount_total > 0 && (
+                <div className="pos-calc-row" style={{ color: '#16a34a', fontWeight: 600 }}>
+                  <span>প্যাকেজ ছাড় (Discount):</span>
+                  <span className="mono">-৳{toBengaliNumber(order.discount_total)}</span>
+                </div>
+              )}
               <div className="pos-calc-row">
                 <span>ডেলিভারি চার্জ (Delivery):</span>
                 <span className="mono">৳{toBengaliNumber(order.delivery_fee || 0)}</span>

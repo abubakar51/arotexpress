@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Package, Truck, CheckCircle2, Clock, MapPin, Phone, PhoneCall, AlertCircle, ShoppingBag, ArrowRight, Printer, X, RefreshCw, User } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
+import { usePackageBox } from '../context/PackageBoxContext.jsx';
+import { useStoreData } from '../context/StoreDataContext';
 import { toBengaliNumber } from '../utils/bengali.js';
 import CustomerInvoiceModal from './CustomerInvoiceModal.jsx';
 
@@ -10,6 +12,8 @@ export default function OrderTrackingModal({ isOpen = true, initialOrderCode = '
   if (isOpen === false) return null;
 
   const { changeQty, setIsCartOpen, showToast } = useCart();
+  const { loadPackageOrderItems } = usePackageBox();
+  const { packageProducts = [] } = useStoreData();
 
   const [orderCode, setOrderCode] = useState(initialOrderCode || (initialOrder ? initialOrder.order_code : ''));
   const [order, setOrder] = useState(initialOrder);
@@ -34,7 +38,12 @@ export default function OrderTrackingModal({ isOpen = true, initialOrderCode = '
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/orders/track/${encodeURIComponent(code)}`);
+      const headers = {};
+      const token = typeof window !== 'undefined' ? localStorage.getItem('arot_express_token') : null;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/orders/track/${encodeURIComponent(code)}`, { headers });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'অর্ডারটি খুঁজে পাওয়া যায়নি');
@@ -70,38 +79,59 @@ export default function OrderTrackingModal({ isOpen = true, initialOrderCode = '
     }
 
     setReordering(true);
-    items.forEach((it) => {
-      const key = `${it.catId || it.catKey || 'cat'}_${it.brand}`;
-      const itemMeta = {
-        catId: it.catId,
-        catKey: it.catKey || 'staples',
-        catBn: it.catBn,
-        productId: it.productId || it.product_id || it.brandId || it.id || null,
-        brandId: it.productId || it.product_id || it.brandId || it.id || null,
-        brand: it.brand,
-        unit: it.unit,
-        price: it.price,
-        image: it.image || ''
-      };
-      changeQty(key, it.qty || 1, itemMeta);
-    });
+    const isPackage = Boolean(
+      order.is_package_order ||
+      order.is_package ||
+      order.isPackage ||
+      (order.order_code && order.order_code.startsWith('PK-'))
+    );
 
-    showToast('সকল পণ্য সফলভাবে কার্টে যোগ করা হয়েছে!');
-    setIsCartOpen(true);
-    if (onClose) onClose();
+    if (isPackage) {
+      loadPackageOrderItems(items, packageProducts);
+      showToast('প্যাকেজ পণ্যগুলো প্যাকেজ বক্সে যুক্ত করা হয়েছে!');
+      if (onClose) onClose();
+      setTimeout(() => {
+        const el = document.getElementById('hero-package-box');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+    } else {
+      items.forEach((it) => {
+        const key = `${it.catId || it.catKey || 'cat'}_${it.brand}`;
+        const itemMeta = {
+          catId: it.catId,
+          catKey: it.catKey || 'staples',
+          catBn: it.catBn,
+          productId: it.productId || it.product_id || it.brandId || it.id || null,
+          brandId: it.productId || it.product_id || it.brandId || it.id || null,
+          brand: it.brand,
+          unit: it.unit,
+          price: it.price,
+          image: it.image || ''
+        };
+        changeQty(key, it.qty || 1, itemMeta);
+      });
+
+      showToast('সকল পণ্য সফলভাবে কার্টে যোগ করা হয়েছে!');
+      setIsCartOpen(true);
+      if (onClose) onClose();
+    }
   };
 
   const getStepIndex = (status) => {
-    if (status === 'pending' || status === 'পেন্ডিং') return 0;
-    if (status === 'processing' || status === 'প্রসেসিং') return 1;
-    if (status === 'shipped' || status === 'পাঠানো হয়েছে') return 2;
-    if (status === 'delivered' || status === 'ডেলিভার্ড' || status === 'সম্পন্ন') return 3;
-    if (status === 'cancelled' || status === 'বাতিল') return -1;
+    const s = String(status || '').toLowerCase().trim();
+    if (s === 'pending' || s === 'পেন্ডিং') return 0;
+    if (s === 'processing' || s === 'প্রসেসিং') return 1;
+    if (s === 'shipped' || s === 'পাঠানো হয়েছে' || s === 'ডেলিভারিতে আছে' || s === 'অন-ডেলিভারি' || s === 'অন-ওয়ে') return 2;
+    if (s === 'delivered' || s === 'ডেলিভার্ড' || s === 'সম্পন্ন') return 3;
+    if (s === 'cancelled' || s === 'বাতিল') return -1;
     return 0;
   };
 
   const currentStep = order ? getStepIndex(order.status) : 0;
   const isCancelled = order && (order.status === 'cancelled' || order.status === 'বাতিল');
+  const isPackageOrder = order && (order.is_package_order || (order.order_code && order.order_code.startsWith('PK-')));
 
   const steps = [
     { title: 'অর্ডার গৃহীত', desc: 'অর্ডার নিশ্চিত হয়েছে', icon: Clock },
@@ -188,8 +218,15 @@ export default function OrderTrackingModal({ isOpen = true, initialOrderCode = '
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
                       <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Order Code</div>
-                      <div className="mono" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)' }}>
-                        {order.order_code || `#ORD-${order.id}`}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div className="mono" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)' }}>
+                          {order.order_code || `#ORD-${order.id}`}
+                        </div>
+                        {isPackageOrder && (
+                          <span style={{ fontSize: '11px', fontWeight: 700, background: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: '12px' }}>
+                            🎁 প্যাকেজ অফার অর্ডার
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
                         তারিখ: {new Date(order.created_at || Date.now()).toLocaleDateString('bn-BD')} · <span className="mono">{new Date(order.created_at || Date.now()).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}</span>

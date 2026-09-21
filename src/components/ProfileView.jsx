@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { usePackageBox } from '../context/PackageBoxContext.jsx';
+import { useStoreData } from '../context/StoreDataContext';
 import { toBengaliNumber } from '../utils/bengali.js';
 import CustomerInvoiceModal from './CustomerInvoiceModal.jsx';
 import OrderTrackingModal from './OrderTrackingModal.jsx';
@@ -24,6 +26,8 @@ import OrderTrackingModal from './OrderTrackingModal.jsx';
 export default function ProfileView({ onBackToHome }) {
   const { user, token, logout, updateProfile } = useAuth();
   const { showToast, addBulkToCart } = useCart();
+  const { loadPackageOrderItems } = usePackageBox();
+  const { packageProducts = [] } = useStoreData();
 
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'settings'
   const [orders, setOrders] = useState([]);
@@ -38,6 +42,46 @@ export default function ProfileView({ onBackToHome }) {
   const [newPassword, setNewPassword] = useState('');
   const [updating, setUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState({ text: '', type: '' });
+
+  const handleReorder = (order) => {
+    let items = order.items_json;
+    if (typeof items === 'string') {
+      try {
+        items = JSON.parse(items);
+      } catch (e) {
+        items = [];
+      }
+    }
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      showToast('অর্ডারে কোনো পণ্য পাওয়া যায়নি');
+      return;
+    }
+
+    const isPackageOrder = Boolean(
+      order.is_package_order ||
+      order.is_package ||
+      order.isPackage ||
+      (order.order_code && order.order_code.startsWith('PK-'))
+    );
+
+    if (isPackageOrder) {
+      loadPackageOrderItems(items, packageProducts);
+      showToast('প্যাকেজ পণ্যগুলো প্যাকেজ বক্সে যুক্ত করা হয়েছে!');
+
+      if (typeof onBackToHome === 'function') {
+        onBackToHome();
+      }
+      setTimeout(() => {
+        const el = document.getElementById('hero-package-box');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+    } else {
+      addBulkToCart(items);
+      showToast('পণ্যগুলো কার্টে যোগ করা হয়েছে!');
+    }
+  };
 
   useEffect(() => {
     if (token) {
@@ -221,127 +265,169 @@ export default function ProfileView({ onBackToHome }) {
                   </motion.button>
                 </div>
               ) : (
-                orders.map((order, idx) => (
-                  <motion.div
-                    className="order-card"
-                    key={order.id || order.order_code}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, delay: idx * 0.04 }}
-                  >
-                    <div className="order-header">
-                      <div>
-                        <strong>অর্ডার কোড: </strong>
-                        <span className="mono" style={{ fontWeight: 700 }}>
-                          {order.order_code}
-                        </span>
-                        <span style={{ fontSize: '11.5px', color: 'var(--muted)', marginLeft: '10px' }}>
-                          {new Date(order.created_at).toLocaleDateString('bn-BD', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                      <div>
-                        <span className={`status-badge ${getStatusClass(order.status)}`}>
-                          {getStatusBn(order.status)}
-                        </span>
-                      </div>
-                    </div>
+                orders.map((order, idx) => {
+                  const isPackageOrder = Boolean(
+                    order.is_package_order ||
+                    order.is_package ||
+                    order.isPackage ||
+                    (order.order_code && order.order_code.startsWith('PK-'))
+                  );
 
-                    <div style={{ fontSize: '13.5px', marginBottom: '8px' }}>
-                      <strong>ঠিকানা:</strong> {order.delivery_address}, {order.delivery_area} | <strong>পেমেন্ট:</strong> {order.payment_method}
-                      {order.trx_id && (
-                        <span> (TrxID: <span className="mono">{order.trx_id}</span>)</span>
-                      )}
-                    </div>
+                  let parsedItems = order.items_json;
+                  if (typeof parsedItems === 'string') {
+                    try {
+                      parsedItems = JSON.parse(parsedItems);
+                    } catch (e) {
+                      parsedItems = [];
+                    }
+                  }
+                  if (!Array.isArray(parsedItems)) parsedItems = [];
 
-                    <div style={{ background: '#F8FAF9', border: '1px solid var(--rule)', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '13px' }}>
-                      <strong>পণ্যসমূহ:</strong>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
-                        {order.items_json?.map((it, iIdx) => (
-                          <div key={iIdx} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>• {it.brand} ({it.catBn || it.unit}) ×{toBengaliNumber(it.qty)}</span>
-                            <span className="mono">৳{toBengaliNumber(it.price * it.qty)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ borderTop: '1px dashed var(--rule)', marginTop: '8px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                        <span>ডেলিভারি ফি সহ মোট:</span>
-                        <span className="mono" style={{ color: 'var(--green-dim)' }}>৳{toBengaliNumber(order.total_amount)}</span>
-                      </div>
-                    </div>
-
-                    {/* Assigned Rider Info (if present) */}
-                    {order.delivery_rider_name && (
-                      <div style={{ marginTop: '10px', padding: '10px 14px', background: 'var(--md-primary-container)', border: '1px solid #BBF7D0', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#166534' }}>
-                          <Bike size={15} color="#15803d" />
-                          <span>ডেলিভারি রাইডার: <strong>{order.delivery_rider_name}</strong></span>
+                  return (
+                    <motion.div
+                      className="order-card"
+                      key={order.order_code ? `profile-ord-${order.order_code}` : `profile-ord-${isPackageOrder ? 'pkg' : 'reg'}-${order.id || idx}-${idx}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: idx * 0.04 }}
+                    >
+                      <div className="order-header">
+                        <div>
+                          <strong>অর্ডার কোড: </strong>
+                          <span className="mono" style={{ fontWeight: 700 }}>
+                            {order.order_code}
+                          </span>
+                          {isPackageOrder && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                background: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                                marginLeft: '8px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <Package size={12} /> প্যাকেজ অর্ডার
+                            </span>
+                          )}
+                          <span style={{ fontSize: '11.5px', color: 'var(--muted)', marginLeft: '10px' }}>
+                            {new Date(order.created_at).toLocaleDateString('bn-BD', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
                         </div>
-                        {order.delivery_rider_phone && (
-                          <a href={`tel:${order.delivery_rider_phone}`} style={{ color: '#15803d', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
-                            <Phone size={12} /> {order.delivery_rider_phone}
-                          </a>
+                        <div>
+                          <span className={`status-badge ${getStatusClass(order.status)}`}>
+                            {getStatusBn(order.status)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '13.5px', marginBottom: '8px' }}>
+                        <strong>ঠিকানা:</strong> {order.delivery_address}, {order.delivery_area} | <strong>পেমেন্ট:</strong> {order.payment_method}
+                        {order.trx_id && (
+                          <span> (TrxID: <span className="mono">{order.trx_id}</span>)</span>
                         )}
                       </div>
-                    )}
 
-                    {/* Order Action Buttons: Re-order, Cash Memo Invoice, Live Tracking */}
-                    <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'flex-end', borderTop: '1px solid var(--rule)', paddingTop: '10px' }}>
-                      {/* 1-Click Re-order Button */}
-                      <motion.button
-                        type="button"
-                        className="admin-btn secondary"
-                        style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#ecfdf5', color: '#065f46', borderColor: '#a7f3d0', fontWeight: 700 }}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => {
-                          if (order.items_json && order.items_json.length > 0) {
-                            addBulkToCart(order.items_json);
-                          } else {
-                            showToast('অর্ডারে কোনো পণ্য পাওয়া যায়নি');
-                          }
-                        }}
-                        title="এক ক্লিকে পুনরায় এই অর্ডারটি কার্টে যোগ করুন"
-                      >
-                        <RotateCcw size={13} />
-                        <span>১-ক্লিকে পুনরায় অর্ডার</span>
-                      </motion.button>
+                      <div style={{ background: '#F8FAF9', border: '1px solid var(--rule)', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '13px' }}>
+                        <strong>পণ্যসমূহ:</strong>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                          {parsedItems.map((it, iIdx) => (
+                            <div key={iIdx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>• {it.brand || it.product_name || it.name} ({it.catBn || it.unit || 'প্যাকেজ'}) ×{toBengaliNumber(it.qty)}</span>
+                              <span className="mono">৳{toBengaliNumber((Number(it.price) || 0) * (Number(it.qty) || 1))}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ borderTop: '1px dashed var(--rule)', marginTop: '8px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                          <span>ডেলিভারি ফি সহ মোট:</span>
+                          <span className="mono" style={{ color: 'var(--green-dim)' }}>৳{toBengaliNumber(order.total_amount)}</span>
+                        </div>
+                      </div>
 
-                      {/* Live Tracking Button */}
-                      <motion.button
-                        type="button"
-                        className="admin-btn secondary"
-                        style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => setTrackingOrderCode(order.order_code)}
-                        title="অর্ডারের বর্তমান লাইভ অবস্থা ট্র্যাক করুন"
-                      >
-                        <Navigation size={13} />
-                        <span>অর্ডার ট্র্যাক</span>
-                      </motion.button>
+                      {/* Assigned Rider Info (if present) */}
+                      {order.delivery_rider_name && (
+                        <div style={{ marginTop: '10px', padding: '10px 14px', background: 'var(--md-primary-container)', border: '1px solid #BBF7D0', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#166534' }}>
+                            <Bike size={15} color="#15803d" />
+                            <span>ডেলিভারি রাইডার: <strong>{order.delivery_rider_name}</strong></span>
+                          </div>
+                          {order.delivery_rider_phone && (
+                            <a href={`tel:${order.delivery_rider_phone}`} style={{ color: '#15803d', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                              <Phone size={12} /> {order.delivery_rider_phone}
+                            </a>
+                          )}
+                        </div>
+                      )}
 
-                      {/* Cash Memo Invoice Modal */}
-                      <motion.button
-                        type="button"
-                        className="admin-btn"
-                        style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => setSelectedOrderForInvoice(order)}
-                        title="ক্যাশ মেমো / ইনভয়েস ভিউ ও ডাউনলোড করুন"
-                      >
-                        <Printer size={13} />
-                        <span>ক্যাশ মেমো</span>
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                ))
+                      {/* Order Action Buttons: Re-order, Cash Memo Invoice, Live Tracking */}
+                      <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'flex-end', borderTop: '1px solid var(--rule)', paddingTop: '10px' }}>
+                        {/* 1-Click Re-order Button */}
+                        <motion.button
+                          type="button"
+                          className="admin-btn secondary"
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            background: isPackageOrder ? '#eff6ff' : '#ecfdf5',
+                            color: isPackageOrder ? '#1d4ed8' : '#065f46',
+                            borderColor: isPackageOrder ? '#bfdbfe' : '#a7f3d0',
+                            fontWeight: 700
+                          }}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => handleReorder(order)}
+                          title={isPackageOrder ? "এক ক্লিকে পুনরায় এই পণ্যগুলো প্যাকেজ বক্সে যোগ করুন" : "এক ক্লিকে পুনরায় এই অর্ডারটি কার্টে যোগ করুন"}
+                        >
+                          <RotateCcw size={13} />
+                          <span>{isPackageOrder ? 'প্যাকেজ বক্সে রি-অর্ডার' : '১-ক্লিকে পুনরায় অর্ডার'}</span>
+                        </motion.button>
+
+                        {/* Live Tracking Button */}
+                        <motion.button
+                          type="button"
+                          className="admin-btn secondary"
+                          style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => setTrackingOrderCode(order.order_code)}
+                          title="অর্ডারের বর্তমান লাইভ অবস্থা ট্র্যাক করুন"
+                        >
+                          <Navigation size={13} />
+                          <span>অর্ডার ট্র্যাক</span>
+                        </motion.button>
+
+                        {/* Cash Memo Invoice Modal */}
+                        <motion.button
+                          type="button"
+                          className="admin-btn"
+                          style={{ padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => setSelectedOrderForInvoice(order)}
+                          title="ক্যাশ মেমো / ইনভয়েস ভিউ ও ডাউনলোড করুন"
+                        >
+                          <Printer size={13} />
+                          <span>ক্যাশ মেমো</span>
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  );
+                })
               )}
             </motion.div>
           )}

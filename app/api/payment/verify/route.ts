@@ -33,6 +33,17 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    const cleanTrx = trx_id.trim();
+    const trxCheck = DBManager.isTrxIdUsed(cleanTrx);
+    if (trxCheck.used) {
+      return NextResponse.json({
+        success: false,
+        verified: false,
+        code: 'ALREADY_VERIFIED',
+        message: `TrxID "${cleanTrx}" টি ইতিমধ্যে পূর্বে ব্যবহার করা হয়েছে (${trxCheck.orderType === 'package_orders' ? 'প্যাকেজ অর্ডার' : 'সাধারণ অর্ডার'} #${trxCheck.order?.order_code || trxCheck.order?.id})! এই TrxID পুনরায় ব্যবহার করা যাবে না।`
+      }, { status: 400 });
+    }
+
     if (!sender_number || !sender_number.trim()) {
       return NextResponse.json({
         verified: false,

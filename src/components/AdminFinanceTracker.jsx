@@ -44,6 +44,7 @@ import { printElement } from '../utils/printHelper.js';
 export default function AdminFinanceTracker({
   adminToken,
   orders = [],
+  packageOrders = [],
   categories = [],
   showToast
 }) {
@@ -51,9 +52,22 @@ export default function AdminFinanceTracker({
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filterPeriod, setFilterPeriod] = useState('month'); // today, yesterday, week, month, all, custom
+  const [orderSourceFilter, setOrderSourceFilter] = useState('all'); // 'all' | 'regular' | 'package'
   const [filterCategory, setFilterCategory] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+
+  // Combined orders list with source flag
+  const combinedOrdersList = useMemo(() => {
+    const list = [];
+    (orders || []).forEach((o) => {
+      list.push({ ...o, is_package_order: false });
+    });
+    (packageOrders || []).forEach((po) => {
+      list.push({ ...po, is_package_order: true });
+    });
+    return list;
+  }, [orders, packageOrders]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -252,9 +266,13 @@ export default function AdminFinanceTracker({
 
   // Filtered Orders (Delivered only for accurate P&L)
   const deliveredOrders = useMemo(() => {
-    return orders.filter((o) => {
+    return combinedOrdersList.filter((o) => {
       const isDelivered = o.status === 'delivered' || o.status === 'ডেলিভার্ড' || o.status === 'সম্পন্ন';
       if (!isDelivered) return false;
+
+      // Source filter
+      if (orderSourceFilter === 'regular' && o.is_package_order) return false;
+      if (orderSourceFilter === 'package' && !o.is_package_order) return false;
 
       const ordDate = o.created_at ? o.created_at.split('T')[0] : '';
       if (filterPeriod === 'today') return ordDate === todayStr;
@@ -273,13 +291,26 @@ export default function AdminFinanceTracker({
       }
       return true;
     });
-  }, [orders, filterPeriod, customStartDate, customEndDate, todayStr, yesterdayStr]);
+  }, [combinedOrdersList, orderSourceFilter, filterPeriod, customStartDate, customEndDate, todayStr, yesterdayStr]);
 
   let totalSales = 0;
+  let regularSales = 0;
+  let packageSales = 0;
   let totalCOGS = 0;
+  let regularOrderCount = 0;
+  let packageOrderCount = 0;
 
   deliveredOrders.forEach((o) => {
-    totalSales += (Number(o.total_amount) || 0);
+    const amt = Number(o.total_amount) || 0;
+    totalSales += amt;
+    if (o.is_package_order) {
+      packageSales += amt;
+      packageOrderCount++;
+    } else {
+      regularSales += amt;
+      regularOrderCount++;
+    }
+
     const items = Array.isArray(o.items_json) ? o.items_json : (typeof o.items_json === 'string' ? JSON.parse(o.items_json) : []);
     items.forEach((it) => {
       const cost = Number(it.cost_price) > 0 ? Number(it.cost_price) : Math.round((Number(it.price) || 0) * 0.85);
@@ -438,8 +469,15 @@ export default function AdminFinanceTracker({
           <div className="mono font-bold" style={{ fontSize: '22px', color: '#15803d', marginTop: '6px' }}>
             ৳{toBengaliNumber(totalSales)}
           </div>
-          <div style={{ fontSize: '11.5px', color: '#14532d', marginTop: '4px' }}>
-            {toBengaliNumber(deliveredOrders.length)} টি ডেলিভার্ড অর্ডার
+          <div style={{ fontSize: '11px', color: '#166534', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div style={{ fontWeight: 600 }}>
+              {toBengaliNumber(deliveredOrders.length)} টি ডেলিভার্ড অর্ডার
+            </div>
+            {(regularSales > 0 || packageSales > 0) && (
+              <div style={{ fontSize: '10.5px', opacity: 0.9, marginTop: '2px' }}>
+                সাধারণ: ৳{toBengaliNumber(regularSales)} ({toBengaliNumber(regularOrderCount)}) · প্যাকেজ: ৳{toBengaliNumber(packageSales)} ({toBengaliNumber(packageOrderCount)})
+              </div>
+            )}
           </div>
         </div>
 
@@ -531,7 +569,7 @@ export default function AdminFinanceTracker({
         }}
       >
         {/* Navigation Sub-Tabs */}
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setActiveSubTab('overview')}
@@ -552,8 +590,30 @@ export default function AdminFinanceTracker({
           </button>
         </div>
 
-        {/* Date Period Filter */}
+        {/* Date & Source Filters */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+          {/* Order Source Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>উৎস:</span>
+            <select
+              value={orderSourceFilter}
+              onChange={(e) => setOrderSourceFilter(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                fontSize: '12.5px',
+                borderRadius: 'var(--radius-pill)',
+                border: '1px solid var(--rule)',
+                background: '#ffffff',
+                outline: 'none',
+                fontWeight: 600
+              }}
+            >
+              <option value="all">সব বিক্রয় (সাধারণ + প্যাকেজ)</option>
+              <option value="regular">শুধুমাত্র সাধারণ অর্ডার</option>
+              <option value="package">শুধুমাত্র প্যাকেজ অর্ডার</option>
+            </select>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}>
             <Calendar size={15} color="var(--muted)" />
             <span>সময়:</span>

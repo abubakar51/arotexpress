@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { SearchX, Loader2 } from 'lucide-react';
+import { SearchX, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { toBengaliNumber } from '../utils/bengali.js';
 import CategoryIcon from './CategoryIcon.jsx';
@@ -15,6 +15,14 @@ export default function CategoryGrid({
 }) {
   const { cart } = useCart();
   const query = searchQuery.trim().toLowerCase();
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  const toggleGroupExpand = (groupKey) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupKey]: !prev[groupKey]
+    }));
+  };
 
   // Calculate in-cart count for each category
   const getCatCartCount = (catId) => {
@@ -71,6 +79,9 @@ export default function CategoryGrid({
     <section className="section-wrap" id="groups-wrap">
       {displayedGroups.map((g, gIdx) => {
         const groupCats = g.groupCats;
+        const isExpanded = query ? true : !!expandedGroups[g.key];
+        const visibleCats = (isExpanded || groupCats.length <= 12) ? groupCats : groupCats.slice(0, 12);
+        const hasMore = groupCats.length > 12 && !query;
 
         return (
           <motion.section
@@ -89,7 +100,7 @@ export default function CategoryGrid({
             </div>
 
             <div className="grid">
-              {groupCats.map((cat, cIdx) => {
+              {visibleCats.map((cat, cIdx) => {
                 const inCartCount = getCatCartCount(cat.id);
                 return (
                   <motion.button
@@ -135,6 +146,39 @@ export default function CategoryGrid({
                 );
               })}
             </div>
+
+            {hasMore && (
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroupExpand(g.key)}
+                  className="admin-btn secondary"
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 'var(--radius-pill)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#ffffff',
+                    border: '1px solid var(--rule)'
+                  }}
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp size={16} />
+                      <span>কম দেখুন</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={16} />
+                      <span>আরও {toBengaliNumber(groupCats.length - 12)}টি ক্যাটাগরি দেখুন</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </motion.section>
         );
       })}

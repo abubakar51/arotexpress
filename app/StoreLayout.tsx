@@ -48,7 +48,15 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         </div>
       </main>
 
-      <CartDrawer onCheckout={() => router.push('/checkout')} />
+      <CartDrawer
+        onCheckout={() => {
+          try {
+            sessionStorage.removeItem('package_order_data');
+            localStorage.removeItem('arot_active_package_order');
+          } catch (e) {}
+          router.push('/checkout');
+        }}
+      />
       <AuthModal />
       <ToastContainer />
 

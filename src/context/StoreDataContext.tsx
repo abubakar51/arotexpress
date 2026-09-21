@@ -8,6 +8,7 @@ interface CachedStoreData {
   settings: any;
   paymentMethods: any[];
   deliveryAreas: any[];
+  packageProducts?: any[];
   defaultDeliveryFee: number;
   timestamp: number;
 }
@@ -78,6 +79,8 @@ interface StoreDataContextType {
   settings: any;
   paymentMethods: any[];
   deliveryAreas: any[];
+  packageProducts: any[];
+  setPackageProducts: React.Dispatch<React.SetStateAction<any[]>>;
   defaultDeliveryFee: number;
   loading: boolean;
   isRevalidating: boolean;
@@ -106,6 +109,7 @@ export function StoreDataProvider({
     settings?: any;
     paymentMethods?: any[];
     deliveryAreas?: any[];
+    packageProducts?: any[];
     defaultDeliveryFee?: number;
   };
 }) {
@@ -118,6 +122,7 @@ export function StoreDataProvider({
   const [settings, setSettings] = useState<any>(() => initialData?.settings || initialCache?.settings || null);
   const [paymentMethods, setPaymentMethods] = useState<any[]>(() => initialData?.paymentMethods || initialCache?.paymentMethods || []);
   const [deliveryAreas, setDeliveryAreas] = useState<any[]>(() => initialData?.deliveryAreas || initialCache?.deliveryAreas || []);
+  const [packageProducts, setPackageProducts] = useState<any[]>(() => initialData?.packageProducts || initialCache?.packageProducts || []);
   const [defaultDeliveryFee, setDefaultDeliveryFee] = useState<number>(() => initialData?.defaultDeliveryFee ?? initialCache?.defaultDeliveryFee ?? 60);
 
   // If we already have categories from SSR or cache, loading is immediately false
@@ -143,6 +148,8 @@ export function StoreDataProvider({
   paymentMethodsRef.current = paymentMethods;
   const deliveryAreasRef = useRef(deliveryAreas);
   deliveryAreasRef.current = deliveryAreas;
+  const packageProductsRef = useRef(packageProducts);
+  packageProductsRef.current = packageProducts;
   const defaultDeliveryFeeRef = useRef(defaultDeliveryFee);
   defaultDeliveryFeeRef.current = defaultDeliveryFee;
 
@@ -174,11 +181,12 @@ export function StoreDataProvider({
     }
 
     try {
-      const [catRes, setRes, payRes, areaRes] = await Promise.all([
+      const [catRes, setRes, payRes, areaRes, pkgRes] = await Promise.all([
         fetch('/api/categories'),
         fetch('/api/settings'),
         fetch('/api/payment-methods'),
-        fetch('/api/delivery-areas')
+        fetch('/api/delivery-areas'),
+        fetch('/api/package-products')
       ]);
 
       let newGroups = groupsRef.current;
@@ -186,7 +194,17 @@ export function StoreDataProvider({
       let newSettings = settingsRef.current;
       let newPaymentMethods = paymentMethodsRef.current;
       let newDeliveryAreas = deliveryAreasRef.current;
+      let newPackageProducts = packageProductsRef.current;
       let newDeliveryFee = defaultDeliveryFeeRef.current;
+
+      if (pkgRes && pkgRes.ok) {
+        const pkgData = await pkgRes.json();
+        const fetchedPkg = Array.isArray(pkgData.products) ? pkgData.products : [];
+        if (hasDataChanged(packageProductsRef.current, fetchedPkg)) {
+          newPackageProducts = fetchedPkg;
+          setPackageProducts(fetchedPkg);
+        }
+      }
 
       if (catRes.ok) {
         const data = await catRes.json();
@@ -252,6 +270,7 @@ export function StoreDataProvider({
         settings: newSettings,
         paymentMethods: newPaymentMethods,
         deliveryAreas: newDeliveryAreas,
+        packageProducts: newPackageProducts,
         defaultDeliveryFee: newDeliveryFee,
         timestamp: Date.now()
       });
@@ -337,6 +356,8 @@ export function StoreDataProvider({
         settings,
         paymentMethods,
         deliveryAreas,
+        packageProducts,
+        setPackageProducts,
         defaultDeliveryFee,
         loading,
         isRevalidating,

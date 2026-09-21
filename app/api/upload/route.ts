@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authenticateToken } from '@/app/lib/auth';
+import { checkRateLimit } from '@/app/lib/rateLimit';
+import sharp from 'sharp';
 
 export async function POST(req: NextRequest) {
   try {
+    const authResult = await authenticateToken(req);
+    if (authResult.error || (authResult.user as any)?.role !== 'admin') {
+      return NextResponse.json({ error: 'শুধুমাত্র অ্যাডমিন ছবি আপলোড করতে পারবেন।' }, { status: 401 });
+    }
+
+    const rateCheck = checkRateLimit(req, 'upload_image', 25, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `অনেক বেশি আপলোড রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ${rateCheck.resetInSeconds} সেকেন্ড অপেক্ষা করুন।` },
+        { status: 429 }
+      );
+    }
+
     const apiKey = (process.env.IMGBB_API || process.env.IMGBB_API_KEY || '').trim();
 
     if (!apiKey) {
@@ -14,11 +30,11 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = req.headers.get('content-type') || '';
-    let imgbbBody = new FormData();
+    let optimizedBuffer: Buffer;
 
     if (contentType.includes('multipart/form-data')) {
       const incomingForm = await req.formData();
-      const file = incomingForm.get('image');
+      const file = incomingForm.get('image') as File | null;
 
       if (!file) {
         return NextResponse.json(
@@ -27,7 +43,23 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      imgbbBody.append('image', file);
+      // Max 10MB input check
+      if (file.size > 10 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: 'ইমেজ ফাইল সাইজ সর্বোচ্চ 10MB হতে পারবে।' },
+          { status: 400 }
+        );
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      const inputBuffer = Buffer.from(arrayBuffer);
+
+      // Optimize image with sharp: resize if > 1600px, convert to high-efficiency WebP
+      optimizedBuffer = await sharp(inputBuffer)
+        .rotate() // Auto-rotate according to EXIF
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 85, effort: 4 })
+        .toBuffer();
     } else {
       const body = await req.json();
       if (!body.image) {
@@ -37,15 +69,24 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // If base64 with data URL prefix, strip data:image/...;base64,
       let imgData = body.image;
       if (typeof imgData === 'string' && imgData.includes('base64,')) {
         imgData = imgData.split('base64,')[1];
       }
-      imgbbBody.append('image', imgData);
+      const inputBuffer = Buffer.from(imgData, 'base64');
+
+      optimizedBuffer = await sharp(inputBuffer)
+        .rotate()
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 85, effort: 4 })
+        .toBuffer();
     }
 
-    // Send request to ImgBB API with User-Agent header (prevents cloud host IP / bot blocking like Render)
+    const imgbbBody = new FormData();
+    const webpBlob = new Blob([new Uint8Array(optimizedBuffer)], { type: 'image/webp' });
+    imgbbBody.append('image', webpBlob, 'optimized_image.webp');
+
+    // Send request to ImgBB API with User-Agent header
     const response = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
       headers: {
@@ -61,7 +102,6 @@ export async function POST(req: NextRequest) {
       resData = JSON.parse(responseText);
     } catch (parseErr) {
       console.error('ImgBB non-JSON response from Render/Host:', responseText);
-      // Check if Cloudflare or ImgBB returned the HTML forbidden page
       if (responseText.includes('forbidden') || response.status === 403) {
         return NextResponse.json(
           {
@@ -81,9 +121,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errorMsg }, { status: 502 });
     }
 
-    // Return the direct permanent URL
-    // data.url: e.g. https://i.ibb.co/.../image.png
-    // data.display_url: display view
     const directUrl = resData.data?.url || resData.data?.display_url;
 
     return NextResponse.json({
@@ -96,7 +133,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('ImgBB Upload Error:', err);
     return NextResponse.json(
-      { error: err.message || 'সার্ভারে ইমেজ আপলোড করতে অপ্রত্যাশিত সমস্যা হয়েছে।' },
+      { error: err.message || 'সার্ভারে ইমেজ অপ্টিমাইজ ও আপলোড করতে সমস্যা হয়েছে।' },
       { status: 500 }
     );
   }

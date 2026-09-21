@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Truck, Plus, Search, Edit2, Trash2, Phone, PhoneCall, Check, X, MapPin, User, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
 import { toBengaliNumber } from '../utils/bengali.js';
 
-export default function AdminDeliveryRiders({ adminToken, orders = [], deliveryAreas: propAreas = [], showToast }) {
+export default function AdminDeliveryRiders({ adminToken, orders = [], packageOrders = [], deliveryAreas: propAreas = [], showToast }) {
   const [riders, setRiders] = useState([]);
   const [areas, setAreas] = useState(propAreas);
   const [loading, setLoading] = useState(false);
@@ -206,13 +206,14 @@ export default function AdminDeliveryRiders({ adminToken, orders = [], deliveryA
     );
   });
 
-  // Calculate order stats per rider
+  // Calculate order stats per rider (combining regular and package orders)
   const getRiderStats = (riderId, riderPhone) => {
-    const assignedOrders = orders.filter(
+    const allOrders = [...(orders || []), ...(packageOrders || [])];
+    const assignedOrders = allOrders.filter(
       (o) => (o.delivery_rider_id && o.delivery_rider_id === riderId) || (o.delivery_rider_phone && o.delivery_rider_phone === riderPhone)
     );
     const activeShipments = assignedOrders.filter(
-      (o) => o.status === 'shipped' || o.status === 'পাঠানো হয়েছে'
+      (o) => o.status === 'shipped' || o.status === 'পাঠানো হয়েছে' || o.status === 'অন-ওয়ে'
     ).length;
     const deliveredCount = assignedOrders.filter(
       (o) => o.status === 'delivered' || o.status === 'ডেলিভার্ড' || o.status === 'সম্পন্ন'

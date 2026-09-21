@@ -6,15 +6,21 @@ const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
   const { user, token } = useAuth();
-  const [cart, setCart] = useState(() => {
-    if (typeof window === 'undefined') return {};
+  const [cart, setCart] = useState({});
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Hydrate cart from localStorage on client mount to guarantee clean SSR hydration
+  useEffect(() => {
     try {
       const local = localStorage.getItem('arot_cart');
-      return local ? JSON.parse(local) : {};
-    } catch {
-      return {};
+      if (local) {
+        setCart(JSON.parse(local));
+      }
+    } catch (e) {
+      console.error('Error hydrating cart from localStorage:', e);
     }
-  });
+    setIsHydrated(true);
+  }, []);
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -179,7 +185,8 @@ export function CartProvider({ children }) {
         showToast,
         cartCountBump,
         totalCount,
-        subtotal
+        subtotal,
+        isHydrated
       }}
     >
       {children}

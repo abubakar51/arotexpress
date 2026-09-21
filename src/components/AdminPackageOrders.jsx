@@ -29,18 +29,27 @@ import {
   ChevronDown,
   Bike,
   Plus,
-  UserCheck
+  UserCheck,
+  Tag
 } from 'lucide-react';
-import { toBengaliNumber, formatStockDisplay, normalizeOrderStatus, getOrderStatusBn } from '../utils/bengali.js';
+import { toBengaliNumber, formatStockDisplay } from '../utils/bengali.js';
 import { copyToClipboard } from '../utils/clipboard.js';
 import Pagination from './Pagination.jsx';
 
-export default function AdminOrders({
+export default function AdminPackageOrders({
+  packageOrders = [],
   orders = [],
   deliveryRiders = [],
   onUpdateStatus,
-  onOpenReceipt
+  onAssignRider,
+  onOpenReceipt,
+  onOpenInvoice,
+  onRefresh
 }) {
+  const ordersList = useMemo(() => {
+    return (packageOrders && packageOrders.length > 0) ? packageOrders : (orders || []);
+  }, [packageOrders, orders]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOption, setSortOption] = useState('newest'); // 'newest' | 'oldest' | 'highest' | 'lowest'
@@ -67,6 +76,29 @@ export default function AdminOrders({
   const [viewAddressModal, setViewAddressModal] = useState(null);
   const [viewFullOrderModal, setViewFullOrderModal] = useState(null);
 
+  // Status normalizer helper (supports English and Bengali)
+  const normalizeStatus = (status) => {
+    const s = String(status || '').toLowerCase().trim();
+    if (s === 'pending' || s === 'পেন্ডিং') return 'pending';
+    if (s === 'processing' || s === 'প্রসেসিং') return 'processing';
+    if (s === 'shipped' || s === 'পাঠানো হয়েছে' || s === 'ডেলিভারিতে আছে' || s === 'অন-ডেলিভারি' || s === 'অন-ওয়ে') return 'shipped';
+    if (s === 'delivered' || s === 'ডেলিভার্ড' || s === 'সম্পন্ন') return 'delivered';
+    if (s === 'cancelled' || s === 'বাতিল') return 'cancelled';
+    return s || 'pending';
+  };
+
+  const getStatusLabel = (st) => {
+    const norm = normalizeStatus(st);
+    switch (norm) {
+      case 'pending': return 'পেন্ডিং';
+      case 'processing': return 'প্রসেসিং';
+      case 'shipped': return 'পাঠানো হয়েছে';
+      case 'delivered': return 'ডেলিভার্ড';
+      case 'cancelled': return 'বাতিল';
+      default: return st;
+    }
+  };
+
   // Copy phone helper
   const handleCopyPhone = async (orderId, phone, e) => {
     if (e) {
@@ -83,7 +115,7 @@ export default function AdminOrders({
   // Status metrics & revenue calculation
   const stats = useMemo(() => {
     const counts = {
-      all: orders.length,
+      all: ordersList.length,
       pending: 0,
       processing: 0,
       shipped: 0,
@@ -93,9 +125,10 @@ export default function AdminOrders({
     let totalRevenue = 0;
     let pendingRevenue = 0;
 
-    orders.forEach((o) => {
+    ordersList.forEach((o) => {
       const amount = Number(o.total_amount) || 0;
-      const norm = normalizeOrderStatus(o.status);
+      const norm = normalizeStatus(o.status);
+
       if (norm === 'pending') {
         counts.pending++;
         pendingRevenue += amount;
@@ -112,15 +145,15 @@ export default function AdminOrders({
     });
 
     return { counts, totalRevenue, pendingRevenue };
-  }, [orders]);
+  }, [ordersList]);
 
   // Filtered and Sorted Orders
   const filteredOrders = useMemo(() => {
-    let list = [...orders];
+    let list = [...ordersList];
 
     // Status filter
     if (statusFilter !== 'all') {
-      list = list.filter((o) => normalizeOrderStatus(o.status) === statusFilter);
+      list = list.filter((o) => normalizeStatus(o.status) === statusFilter);
     }
 
     // Search filter
@@ -166,7 +199,7 @@ export default function AdminOrders({
     });
 
     return list;
-  }, [orders, statusFilter, searchTerm, sortOption]);
+  }, [ordersList, statusFilter, searchTerm, sortOption]);
 
   // Paginated Orders slice
   const paginatedOrders = useMemo(() => {
@@ -174,15 +207,13 @@ export default function AdminOrders({
     return filteredOrders.slice(start, start + pageSize);
   }, [filteredOrders, currentPage, pageSize]);
 
-  const getStatusLabel = (st) => {
-    switch (st) {
-      case 'pending': return 'পেন্ডিং';
-      case 'processing': return 'প্রসেসিং';
-      case 'shipped': return 'পাঠানো হয়েছে';
-      case 'delivered': return 'ডেলিভার্ড';
-      case 'cancelled': return 'বাতিল';
-      default: return st;
+  // Handle status update confirmation
+  const handleConfirmStatusChange = () => {
+    if (!statusModalOrder) return;
+    if (onUpdateStatus) {
+      onUpdateStatus(statusModalOrder.id, pendingStatus);
     }
+    setStatusModalOrder(null);
   };
 
   return (
@@ -194,7 +225,7 @@ export default function AdminOrders({
             <ShoppingBag size={20} />
           </div>
           <div className="stat-info">
-            <div className="stat-label">মোট অর্ডার সংখ্যা</div>
+            <div className="stat-label">মোট প্যাকেজ অর্ডার</div>
             <div className="stat-value mono">{toBengaliNumber(stats.counts.all)} টি</div>
           </div>
         </div>
@@ -308,7 +339,7 @@ export default function AdminOrders({
             <Search size={16} className="search-icon-svg" />
             <input
               type="text"
-              placeholder="অর্ডার কোড (AE-...), গ্রাহকের নাম, মোবাইল নম্বর, এলাকা বা TrxID..."
+              placeholder="প্যাকেজ অর্ডার কোড (PK-...), গ্রাহকের নাম, মোবাইল নম্বর, এলাকা বা TrxID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -348,224 +379,209 @@ export default function AdminOrders({
           <div className="empty-icon-circle">
             <Package size={36} />
           </div>
-          <h4>কোনো অর্ডার পাওয়া যায়নি</h4>
+          <h4>কোনো প্যাকেজ অর্ডার পাওয়া যায়নি</h4>
           <p>
             {searchTerm || statusFilter !== 'all'
-              ? 'আপনার অনুসন্ধান বা নির্বাচিত ফিল্টারের সাথে মিল থাকা কোনো অর্ডার নেই।'
-              : 'এখনও পর্যন্ত কোনো অর্ডার তালিকায় জমা পড়েনি।'}
+              ? 'আপনার অনুসন্ধান বা নির্বাচিত ফিল্টারের সাথে মিল থাকা কোনো প্যাকেজ অর্ডার নেই।'
+              : 'এখনও পর্যন্ত কোনো প্যাকেজ অর্ডার তালিকায় জমা পড়েনি।'}
           </p>
-          {(searchTerm || statusFilter !== 'all') && (
-            <button
-              type="button"
-              className="admin-btn secondary"
-              style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-              }}
-            >
-              <X size={14} /> ফিল্টার রিসেট করুন
-            </button>
-          )}
         </div>
       ) : (
         <>
-          {/* Mobile Orders Card View (Visible on small screens) */}
+          {/* Mobile Orders Card View (Visible only on mobile screens <=900px) */}
           <div className="admin-orders-mobile-container">
-            {paginatedOrders.map((o) => (
-              <div key={o.id} className={`admin-order-card-mobile order-card-status-${o.status}`}>
-                {/* Header: Order Code, Date, Status */}
-                <div className="card-top-header">
-                  <div>
-                    <button type="button" className="admin-btn secondary" style={{ padding: '5px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--rule)', background: '#F8FAF9', borderRadius: 'var(--radius-pill)' }} onClick={() => setViewFullOrderModal(o)}>
-                      <span className="mono font-bold">{o.order_code || `#ORD-${o.id}`}</span>
-                      <Package size={12} />
-                    </button>
-                    <div className="order-time-label">
-                      <Calendar size={12} />
-                      <span>{new Date(o.created_at).toLocaleDateString('bn-BD')}</span>
-                      <Clock size={12} style={{ marginLeft: '6px' }} />
-                      <span className="mono">{new Date(o.created_at).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                  </div>
-                  <div className="card-status-select-wrap">
-                    <button
-                      type="button"
-                      className={`status-badge status-${normalizeOrderStatus(o.status)}`}
-                      style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      onClick={() => {
-                        setStatusModalOrder(o);
-                        setPendingStatus(normalizeOrderStatus(o.status));
-                      }}
-                    >
-                      <span>
-                        {getOrderStatusBn(o.status)}
-                      </span>
-                      <ChevronDown size={14} />
-                    </button>
-                  </div>
-                </div>
+            {paginatedOrders.map((o) => {
+              const normStatus = normalizeStatus(o.status);
+              const itemsCount = Array.isArray(o.items_json)
+                ? o.items_json.length
+                : (typeof o.items_json === 'string' ? (JSON.parse(o.items_json) || []).length : 0);
 
-                {/* Customer Details Box */}
-                <div className="card-customer-section">
-                  <div className="customer-row">
-                    <User size={14} className="info-icon" />
-                    <strong>{o.customer_name}</strong>
-                  </div>
-                  <div className="customer-row" style={{ justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Phone size={13} className="info-icon" />
-                      <a href={`tel:${o.customer_phone}`} className="mono phone-link">
-                        {o.customer_phone}
-                      </a>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
+              return (
+                <div key={o.id} className={`admin-order-card-mobile order-card-status-${normStatus}`}>
+                  {/* Header: Order Code, Date & Status */}
+                  <div className="card-top-header">
+                    <div>
                       <button
                         type="button"
-                        className="quick-icon-btn"
-                        onClick={(e) => handleCopyPhone(o.id, o.customer_phone, e)}
-                        title="নম্বর কপি করুন"
+                        className="admin-btn secondary"
+                        style={{ padding: '5px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--rule)', background: '#F8FAF9', borderRadius: 'var(--radius-pill)' }}
+                        onClick={() => setViewFullOrderModal(o)}
                       >
-                        {copiedOrderId === o.id ? <Check size={13} color="var(--green)" /> : <Copy size={13} />}
+                        <span className="mono font-bold">{o.order_code || `#PK-${o.id}`}</span>
+                        <Package size={12} />
                       </button>
-                      <a
-                        href={`tel:${o.customer_phone}`}
-                        className="quick-icon-btn call-action"
-                        title="সরাসরি কল দিন"
-                      >
-                        <PhoneCall size={13} />
-                      </a>
+                      <div className="order-time-label">
+                        <Calendar size={12} />
+                        <span>{new Date(o.created_at || Date.now()).toLocaleDateString('bn-BD')}</span>
+                        <Clock size={12} style={{ marginLeft: '6px' }} />
+                        <span className="mono">{new Date(o.created_at || Date.now()).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="customer-row">
-                    <MapPin size={14} className="info-icon" style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <span style={{ fontSize: '13px', lineHeight: 1.4 }}>{o.delivery_address}</span>
-                  </div>
-                  {o.delivery_area && (
-                    <div className="customer-row" style={{ marginTop: '2px' }}>
-                      <Building2 size={13} className="info-icon" />
-                      <span className="order-area-badge">{o.delivery_area}</span>
-                    </div>
-                  )}
-                </div>
 
-                {/* Delivery Rider Section (Mobile) */}
-                <div style={{ padding: '8px 12px', background: 'var(--cream-card)', borderTop: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}>
-                    <Bike size={14} color="var(--green-dim)" />
-                    <span>রাইডার:</span>
-                    <strong>{o.delivery_rider_name || 'অ্যাসাইন হয়নি'}</strong>
+                    <div className="card-status-select-wrap">
+                      <button
+                        type="button"
+                        className={`status-badge status-${normStatus}`}
+                        style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => {
+                          setStatusModalOrder(o);
+                          setPendingStatus(normStatus);
+                        }}
+                      >
+                        <span>{getStatusLabel(o.status)}</span>
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
                   </div>
-                  {o.delivery_rider_name ? (
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      {o.delivery_rider_phone && (
-                        <a href={`tel:${o.delivery_rider_phone}`} className="quick-icon-btn call-action" title="কল দিন">
-                          <PhoneCall size={12} />
+
+                  {/* Customer Details Box */}
+                  <div className="card-customer-section">
+                    <div className="customer-row">
+                      <User size={14} className="info-icon" />
+                      <strong>{o.customer_name}</strong>
+                    </div>
+                    <div className="customer-row" style={{ justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Phone size={13} className="info-icon" />
+                        <a href={`tel:${o.customer_phone}`} className="mono phone-link">
+                          {o.customer_phone}
                         </a>
-                      )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="quick-icon-btn"
+                          onClick={(e) => handleCopyPhone(o.id, o.customer_phone, e)}
+                          title="নম্বর কপি করুন"
+                        >
+                          {copiedOrderId === o.id ? <Check size={13} color="var(--green)" /> : <Copy size={13} />}
+                        </button>
+                        <a
+                          href={`tel:${o.customer_phone}`}
+                          className="quick-icon-btn call-action"
+                          title="সরাসরি কল দিন"
+                        >
+                          <PhoneCall size={13} />
+                        </a>
+                      </div>
+                    </div>
+                    <div className="customer-row">
+                      <MapPin size={14} className="info-icon" style={{ flexShrink: 0, marginTop: '2px' }} />
+                      <span style={{ fontSize: '13px', lineHeight: 1.4 }}>{o.delivery_address}</span>
+                    </div>
+                    {o.delivery_area && (
+                      <div className="customer-row" style={{ marginTop: '2px' }}>
+                        <Building2 size={13} className="info-icon" />
+                        <span className="order-area-badge">{o.delivery_area}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Delivery Rider Section (Mobile) */}
+                  <div style={{ padding: '8px 12px', background: 'var(--cream-card)', borderTop: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}>
+                      <Bike size={14} color="var(--green-dim)" />
+                      <span>রাইডার:</span>
+                      <strong>{o.delivery_rider_name || 'অ্যাসাইন হয়নি'}</strong>
+                    </div>
+                    {o.delivery_rider_name ? (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {o.delivery_rider_phone && (
+                          <a href={`tel:${o.delivery_rider_phone}`} className="quick-icon-btn call-action" title="কল দিন">
+                            <PhoneCall size={12} />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          className="admin-btn secondary"
+                          style={{ padding: '2px 8px', fontSize: '11px' }}
+                          onClick={() => setRiderDetailsModal(o)}
+                        >
+                          বিস্তারিত
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         className="admin-btn secondary"
                         style={{ padding: '2px 8px', fontSize: '11px' }}
-                        onClick={() => setRiderDetailsModal(o)}
+                        onClick={() => {
+                          setAssignRiderModalOrder(o);
+                          setSelectedRiderId(o.delivery_rider_id || '');
+                          setDeliveryNote(o.delivery_note || '');
+                        }}
                       >
-                        বিস্তারিত
+                        + অ্যাসাইন
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Items Breakdown */}
+                  <div className="card-items-section">
+                    <div className="items-header-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Package size={13} />
+                        <span>প্যাকেজ পণ্য ({toBengaliNumber(itemsCount)} টি)</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="admin-btn secondary"
+                        style={{ padding: '4px 10px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        onClick={() => setViewItemsModal(o)}
+                      >
+                        বিস্তারিত দেখুন
                       </button>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="admin-btn secondary"
-                      style={{ padding: '2px 8px', fontSize: '11px' }}
-                      onClick={() => {
-                        setAssignRiderModalOrder(o);
-                        setSelectedRiderId(o.delivery_rider_id || '');
-                        setDeliveryNote(o.delivery_note || '');
-                      }}
-                    >
-                      + অ্যাসাইন
-                    </button>
-                  )}
-                </div>
-
-                {/* Items Breakdown */}
-                <div className="card-items-section">
-                  <div className="items-header-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Package size={13} />
-                      <span>আইটেম তালিকা ({toBengaliNumber(o.items_json?.length || 0)} টি)</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="admin-btn secondary"
-                      style={{ padding: '4px 10px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      onClick={() => setViewItemsModal(o)}
-                    >
-                      বিস্তারিত দেখুন
-                    </button>
-                  </div>
-                </div>
-
-                {/* Payment & Bill Summary */}
-                <div className="card-bill-footer">
-                  <div>
-                    <div className="mono font-bold total-price-text">
-                      ৳{toBengaliNumber(o.total_amount)}
-                    </div>
-                    <div className="bill-sub-breakdown">
-                      (পণ্য ৳{toBengaliNumber(o.subtotal || (o.total_amount - (o.delivery_fee || 0)))} + চার্জ ৳{toBengaliNumber(o.delivery_fee || 0)})
-                    </div>
-                    <div className="payment-method-tag">
-                      {o.payment_method === 'cod' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Banknote size={12} /> ক্যাশ অন ডেলিভারি
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <CreditCard size={12} /> {o.payment_method}
-                        </span>
-                      )}
-                      {o.trx_id && <span className="mono trx-tag">Trx: {o.trx_id}</span>}
-                      {o.payment_status === 'verified' && (
-                        <span
-                          style={{
-                            background: '#dcfce7',
-                            color: '#15803d',
-                            border: '1px solid #86efac',
-                            padding: '2px 7px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}
-                          title="স্বয়ংক্রিয় গেটওয়ে দ্বারা ভেরিফাইড"
-                        >
-                          <Check size={11} /> ভেরিফাইড
-                        </span>
-                      )}
-                    </div>
                   </div>
 
-                  {/* Receipt Print Button */}
-                  <motion.button
-                    type="button"
-                    className="admin-pos-print-btn"
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => onOpenReceipt(o)}
-                    title="ক্যাশ মেমো / রসিদ প্রিন্ট করুন"
-                  >
-                    <Printer size={14} />
-                    <span>রসিদ প্রিন্ট</span>
-                  </motion.button>
+                  {/* Payment & Bill Summary */}
+                  <div className="card-bill-footer">
+                    <div>
+                      <div className="mono font-bold total-price-text">
+                        ৳{toBengaliNumber(o.total_amount)}
+                      </div>
+                      <div className="bill-sub-breakdown">
+                        {o.discount_total > 0 ? (
+                          <span>(উপমোট ৳{toBengaliNumber(o.subtotal || o.total_amount)} - ছাড় ৳{toBengaliNumber(o.discount_total)} + চার্জ ৳{toBengaliNumber(o.delivery_fee || 0)})</span>
+                        ) : (
+                          <span>(পণ্য ৳{toBengaliNumber(o.subtotal || o.total_amount)} + চার্জ ৳{toBengaliNumber(o.delivery_fee || 0)})</span>
+                        )}
+                      </div>
+                      <div className="payment-method-tag">
+                        {o.payment_method === 'cod' || !o.payment_method || o.payment_method.includes('ক্যাশ') ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <Banknote size={12} /> ক্যাশ অন ডেলিভারি
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <CreditCard size={12} /> {o.payment_method}
+                          </span>
+                        )}
+                        {o.trx_id && <span className="mono trx-tag">Trx: {o.trx_id}</span>}
+                      </div>
+                    </div>
+
+                    {/* Receipt Print Button */}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <motion.button
+                        type="button"
+                        className="admin-pos-print-btn"
+                        whileHover={{ scale: 1.04 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={() => onOpenReceipt(o)}
+                        title="POS রসিদ প্রিন্ট করুন"
+                      >
+                        <Printer size={14} />
+                        <span>রসিদ</span>
+                      </motion.button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Desktop & Tablet Spacious Structured Table View */}
+          {/* Desktop & Tablet Structured Table View (Identical to AdminOrders) */}
           <div className="admin-table-wrap admin-orders-desktop-table">
             <table className="admin-table clean-orders-table">
               <thead>
@@ -577,160 +593,197 @@ export default function AdminOrders({
                   <th style={{ textAlign: 'center' }}>বিল</th>
                   <th style={{ textAlign: 'center' }}>ডেলিভারিম্যান</th>
                   <th style={{ textAlign: 'center' }}>স্ট্যাটাস</th>
-                  <th style={{ textAlign: 'center' }}></th>
+                  <th style={{ textAlign: 'center' }}>রসিদ</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedOrders.map((o) => (
-                  <tr key={o.id} className={`order-row-status-${normalizeOrderStatus(o.status)}`} style={{textAlign: 'center'}}>
-                    {/* Column 1: Order Code & Date */}
-                    <td>
-                      <button type="button" className="admin-btn secondary" style={{ padding: '5px 12px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '5px', border: '1px solid var(--rule)', background: '#F8FAF9', borderRadius: 'var(--radius-pill)', fontWeight: 700 }} onClick={() => setViewFullOrderModal(o)}>
-                        <span className="mono font-bold">{o.order_code}</span>
-                      </button>
-                    </td>
+                {paginatedOrders.map((o) => {
+                  const normStatus = normalizeStatus(o.status);
+                  const itemsList = Array.isArray(o.items_json)
+                    ? o.items_json
+                    : (typeof o.items_json === 'string' ? (JSON.parse(o.items_json) || []) : []);
 
-                    {/* Column 2: Customer Details */}
-                    <td>
-                      <div className="customer-name-box">
-                        <User size={14} />
-                        <strong>{o.customer_name}</strong>
-                      </div>
-                      <div className="customer-phone-box">
-                        <Phone size={12} />
-                        <a href={`tel:${o.customer_phone}`} className="mono phone-link">
-                          {o.customer_phone}
-                        </a>
-                        <button
-                          type="button"
-                          className="quick-icon-btn small"
-                          onClick={(e) => handleCopyPhone(o.id, o.customer_phone, e)}
-                          title="নম্বর কপি করুন"
-                        >
-                          {copiedOrderId === o.id ? <Check size={11} color="var(--green)" /> : <Copy size={11} />}
-                        </button>
-                      </div>
-                    </td>
-
-                    {/* Column 3: Address & Area */}
-                    <td>
-                      <button type="button" className="admin-btn secondary" style={{ padding: '5px 12px', fontSize: '12.5px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--rule)', background: '#fff', borderRadius: 'var(--radius-pill)', fontWeight: 600 }} onClick={() => setViewAddressModal(o)}>
-                        <MapPin size={14} />
-                        <span>{o.delivery_area || 'ঠিকানা বিস্তারিত'}</span>
-                      </button>
-                    </td>
-
-                    {/* Column 4: Ordered Items List */}
-                    <td>
-                      <button
-                        type="button"
-                        className="admin-btn secondary"
-                        style={{ padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}
-                        onClick={() => setViewItemsModal(o)}
-                      >
-                        <Package size={14} />
-                        <span>{toBengaliNumber(o.items_json?.length || 0)} টি পণ্য</span>
-                      </button>
-                    </td>
-
-                    {/* Column 5: Bill & Payment */}
-                    <td>
-                      <button
-                        type="button"
-                        className="admin-btn secondary"
-                        style={{ padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}
-                        onClick={() => setViewBillModal(o)}
-                      >
-                        <CreditCard size={14} />
-                        <span className="mono font-bold">৳{toBengaliNumber(o.total_amount)}</span>
-                      </button>
-                    </td>
-
-                    {/* Column 6: Delivery Rider Assignment */}
-                    <td>
-                      {o.delivery_rider_name ? (
+                  return (
+                    <tr key={o.id} className={`order-row-status-${normStatus}`} style={{ textAlign: 'center' }}>
+                      {/* Column 1: Order Code */}
+                      <td>
                         <button
                           type="button"
                           className="admin-btn secondary"
                           style={{
-                            padding: '4px 8px',
-                            fontSize: '12px',
+                            padding: '5px 12px',
+                            fontSize: '13px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '5px',
-                            border: '1.5px solid #16a34a',
-                            background: '#f0fdf4',
-                            color: '#166534',
-                            borderRadius: '4px',
+                            border: '1px solid var(--rule)',
+                            background: '#F8FAF9',
+                            borderRadius: 'var(--radius-pill)',
                             fontWeight: 700
                           }}
-                          onClick={() => setRiderDetailsModal(o)}
-                          title="ডেলিভারিম্যান বিস্তারিত ও পরিবর্তন"
+                          onClick={() => setViewFullOrderModal(o)}
                         >
-                          <Bike size={13} color="#15803d" />
-                          <span>{o.delivery_rider_name}</span>
+                          <span className="mono font-bold">{o.order_code || `#PK-${o.id}`}</span>
                         </button>
-                      ) : (
+                      </td>
+
+                      {/* Column 2: Customer Details */}
+                      <td>
+                        <div className="customer-name-box">
+                          <User size={14} />
+                          <strong>{o.customer_name}</strong>
+                        </div>
+                        <div className="customer-phone-box">
+                          <Phone size={12} />
+                          <a href={`tel:${o.customer_phone}`} className="mono phone-link">
+                            {o.customer_phone}
+                          </a>
+                          <button
+                            type="button"
+                            className="quick-icon-btn small"
+                            onClick={(e) => handleCopyPhone(o.id, o.customer_phone, e)}
+                            title="নম্বর কপি করুন"
+                          >
+                            {copiedOrderId === o.id ? <Check size={11} color="var(--green)" /> : <Copy size={11} />}
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Column 3: Address & Area */}
+                      <td>
                         <button
                           type="button"
                           className="admin-btn secondary"
                           style={{
-                            padding: '4px 8px',
-                            fontSize: '11.5px',
+                            padding: '5px 12px',
+                            fontSize: '12.5px',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            border: '1px dashed var(--rule)',
-                            background: 'var(--paper)',
-                            color: 'var(--muted)',
-                            borderRadius: '4px'
+                            gap: '6px',
+                            border: '1px solid var(--rule)',
+                            background: '#fff',
+                            borderRadius: 'var(--radius-pill)',
+                            fontWeight: 600
                           }}
+                          onClick={() => setViewAddressModal(o)}
+                        >
+                          <MapPin size={14} />
+                          <span>{o.delivery_area || 'ঠিকানা বিস্তারিত'}</span>
+                        </button>
+                      </td>
+
+                      {/* Column 4: Ordered Items List */}
+                      <td>
+                        <button
+                          type="button"
+                          className="admin-btn secondary"
+                          style={{ padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}
+                          onClick={() => setViewItemsModal(o)}
+                        >
+                          <Package size={14} />
+                          <span>{toBengaliNumber(itemsList.length)} টি পণ্য</span>
+                        </button>
+                      </td>
+
+                      {/* Column 5: Bill & Payment */}
+                      <td>
+                        <button
+                          type="button"
+                          className="admin-btn secondary"
+                          style={{ padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}
+                          onClick={() => setViewBillModal(o)}
+                        >
+                          <CreditCard size={14} />
+                          <span className="mono font-bold">৳{toBengaliNumber(o.total_amount)}</span>
+                        </button>
+                      </td>
+
+                      {/* Column 6: Delivery Rider Assignment */}
+                      <td>
+                        {o.delivery_rider_name ? (
+                          <button
+                            type="button"
+                            className="admin-btn secondary"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              border: '1.5px solid #16a34a',
+                              background: '#f0fdf4',
+                              color: '#166534',
+                              borderRadius: '4px',
+                              fontWeight: 700
+                            }}
+                            onClick={() => setRiderDetailsModal(o)}
+                            title="ডেলিভারিম্যান বিস্তারিত ও পরিবর্তন"
+                          >
+                            <Bike size={13} color="#15803d" />
+                            <span>{o.delivery_rider_name}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-btn secondary"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '11.5px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              border: '1px dashed var(--rule)',
+                              background: 'var(--paper)',
+                              color: 'var(--muted)',
+                              borderRadius: '4px'
+                            }}
+                            onClick={() => {
+                              setAssignRiderModalOrder(o);
+                              setSelectedRiderId(o.delivery_rider_id || '');
+                              setDeliveryNote(o.delivery_note || '');
+                            }}
+                          >
+                            <Plus size={12} />
+                            <span>রাইডার অ্যাসাইন</span>
+                          </button>
+                        )}
+                      </td>
+
+                      {/* Column 7: Status Update Dropdown */}
+                      <td>
+                        <button
+                          type="button"
+                          className={`status-badge status-${normStatus}`}
+                          style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}
                           onClick={() => {
-                            setAssignRiderModalOrder(o);
-                            setSelectedRiderId(o.delivery_rider_id || '');
-                            setDeliveryNote(o.delivery_note || '');
+                            setStatusModalOrder(o);
+                            setPendingStatus(normStatus);
                           }}
                         >
-                          <Plus size={12} />
-                          <span>রাইডার অ্যাসাইন</span>
+                          <span style={{ flex: 1, textAlign: 'left' }}>
+                            {getStatusLabel(o.status)}
+                          </span>
+                          <ChevronDown size={14} />
                         </button>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Column 7: Status Update Dropdown */}
-                    <td>
-                      <button
-                        type="button"
-                        className={`status-badge status-${normalizeOrderStatus(o.status)}`}
-                        style={{ cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '4px' }}
-                        onClick={() => {
-                          setStatusModalOrder(o);
-                          setPendingStatus(normalizeOrderStatus(o.status));
-                        }}
-                      >
-                        <span style={{flex: 1, textAlign: 'left'}}>
-                          {getOrderStatusBn(o.status)}
-                        </span>
-                        <ChevronDown size={14} />
-                      </button>
-                    </td>
-
-                    {/* Column 8: Print Receipt Button */}
-                    <td style={{ textAlign: 'center' }}>
-                      <motion.button
-                        type="button"
-                        className="admin-pos-print-btn"
-                        whileHover={{ scale: 1.06 }}
-                        whileTap={{ scale: 0.94 }}
-                        onClick={() => onOpenReceipt(o)}
-                        title="ক্যাশ মেমো / রসিদ প্রিন্ট করুন"
-                      >
-                        <Printer size={13} />
-                        <span>রসিদ</span>
-                      </motion.button>
-                    </td>
-                  </tr>
-                ))}
+                      {/* Column 8: Print Receipt Button */}
+                      <td style={{ textAlign: 'center' }}>
+                        <motion.button
+                          type="button"
+                          className="admin-pos-print-btn"
+                          whileHover={{ scale: 1.06 }}
+                          whileTap={{ scale: 0.94 }}
+                          onClick={() => onOpenReceipt(o)}
+                          title="ক্যাশ মেমো / রসিদ প্রিন্ট করুন"
+                        >
+                          <Printer size={13} />
+                          <span>রসিদ</span>
+                        </motion.button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -746,7 +799,7 @@ export default function AdminOrders({
         </>
       )}
 
-      {/* Status Update Modal */}
+      {/* 1. Status Update Modal */}
       <AnimatePresence>
         {statusModalOrder && (
           <div
@@ -765,7 +818,7 @@ export default function AdminOrders({
               <div className="admin-modal-header">
                 <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
                   <Settings size={18} color="var(--ink)" />
-                  <span>অর্ডার স্ট্যাটাস পরিবর্তন</span>
+                  <span>প্যাকেজ অর্ডার স্ট্যাটাস পরিবর্তন</span>
                 </h4>
                 <button
                   type="button"
@@ -778,24 +831,24 @@ export default function AdminOrders({
 
               <div className="admin-modal-body">
                 <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--muted)' }}>
-                  অর্ডার <strong>{statusModalOrder.order_code || `#ORD-${statusModalOrder.id}`}</strong> এর বর্তমান স্ট্যাটাস নির্ধারণ করুন:
+                  অর্ডার <strong>{statusModalOrder.order_code || `#PK-${statusModalOrder.id}`}</strong> এর বর্তমান স্ট্যাটাস নির্ধারণ করুন:
                 </p>
                 <div className="field">
                   <select
                     value={pendingStatus}
                     onChange={(e) => setPendingStatus(e.target.value)}
-                    style={{ width: '100%', padding: '10px', fontSize: '14px' }}
+                    style={{ width: '100%', padding: '10px', fontSize: '14px', borderRadius: '4px', border: '1px solid var(--rule)' }}
                   >
                     <option value="pending">পেন্ডিং</option>
                     <option value="processing">প্রসেসিং</option>
-                    <option value="shipped">পাঠানো হয়েছে (Shipped)</option>
+                    <option value="shipped">পাঠানো হয়েছে (Shipped / অন-ডেলিভারি)</option>
                     <option value="delivered">ডেলিভার্ড</option>
                     <option value="cancelled">বাতিল</option>
                   </select>
                 </div>
                 {pendingStatus === 'shipped' && (
                   <div style={{ marginTop: '10px', fontSize: '12px', color: '#15803d', background: '#f0fdf4', padding: '8px', borderRadius: '4px', border: '1px solid #86efac' }}>
-                    💡 'নিশ্চিত করুন' চাপলে ডেলিভারিম্যান অ্যাসাইন করার উইন্ডো প্রদর্শিত হবে।
+                    রাইডার অ্যাসাইন করে থাকলে রাইডারের কাছে এই প্যাকেজ ডেলিভারির জন্য চলে যাবে।
                   </div>
                 )}
               </div>
@@ -808,30 +861,21 @@ export default function AdminOrders({
                 >
                   বাতিল
                 </button>
-                <button
+                <motion.button
                   type="button"
                   className="admin-btn"
-                  onClick={() => {
-                    if (pendingStatus === 'shipped') {
-                      const targetOrd = statusModalOrder;
-                      setStatusModalOrder(null);
-                      setAssignRiderModalOrder(targetOrd);
-                      setSelectedRiderId(targetOrd.delivery_rider_id || '');
-                      setDeliveryNote(targetOrd.delivery_note || '');
-                    } else {
-                      onUpdateStatus(statusModalOrder.id, pendingStatus);
-                      setStatusModalOrder(null);
-                    }
-                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleConfirmStatusChange}
                 >
-                  নিশ্চিত করুন
-                </button>
+                  পরিবর্তন করুন
+                </motion.button>
               </div>
             </motion.div>
           </div>
         )}
 
-        {/* Assign Delivery Rider Modal */}
+        {/* 2. Assign Rider Modal */}
         {assignRiderModalOrder && (
           <div
             className="admin-modal-overlay"
@@ -862,7 +906,7 @@ export default function AdminOrders({
 
               <div className="admin-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div style={{ background: 'var(--paper)', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--rule)', fontSize: '13px' }}>
-                  অর্ডার কোড: <strong className="mono">{assignRiderModalOrder.order_code || `#ORD-${assignRiderModalOrder.id}`}</strong>
+                  অর্ডার কোড: <strong className="mono">{assignRiderModalOrder.order_code || `#PK-${assignRiderModalOrder.id}`}</strong>
                   <br />
                   গ্রাহক: <strong>{assignRiderModalOrder.customer_name}</strong> ({assignRiderModalOrder.delivery_area})
                 </div>
@@ -910,8 +954,9 @@ export default function AdminOrders({
                   type="button"
                   className="admin-btn secondary"
                   onClick={() => {
-                    // Just mark as shipped without rider
-                    onUpdateStatus(assignRiderModalOrder.id, 'shipped');
+                    if (onUpdateStatus) {
+                      onUpdateStatus(assignRiderModalOrder.id, 'shipped');
+                    }
                     setAssignRiderModalOrder(null);
                   }}
                 >
@@ -925,21 +970,24 @@ export default function AdminOrders({
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     const rider = deliveryRiders.find((r) => String(r.id) === String(selectedRiderId));
-                    const riderInfo = rider ? {
-                      delivery_rider_id: rider.id,
-                      delivery_rider_name: rider.name,
-                      delivery_rider_phone: rider.phone,
-                      delivery_rider_vehicle: rider.vehicle,
-                      delivery_note: deliveryNote
-                    } : {
-                      delivery_rider_id: null,
-                      delivery_rider_name: null,
-                      delivery_rider_phone: null,
-                      delivery_rider_vehicle: null,
-                      delivery_note: deliveryNote
-                    };
-
-                    onUpdateStatus(assignRiderModalOrder.id, 'shipped', riderInfo);
+                    if (onAssignRider && rider) {
+                      onAssignRider(assignRiderModalOrder.id, rider.id);
+                    } else if (onUpdateStatus) {
+                      const riderInfo = rider ? {
+                        delivery_rider_id: rider.id,
+                        delivery_rider_name: rider.name,
+                        delivery_rider_phone: rider.phone,
+                        delivery_rider_vehicle: rider.vehicle,
+                        delivery_note: deliveryNote
+                      } : {
+                        delivery_rider_id: null,
+                        delivery_rider_name: null,
+                        delivery_rider_phone: null,
+                        delivery_rider_vehicle: null,
+                        delivery_note: deliveryNote
+                      };
+                      onUpdateStatus(assignRiderModalOrder.id, 'shipped', riderInfo);
+                    }
                     setAssignRiderModalOrder(null);
                   }}
                 >
@@ -950,7 +998,7 @@ export default function AdminOrders({
           </div>
         )}
 
-        {/* View Assigned Rider Details Modal */}
+        {/* 3. View Assigned Rider Details Modal */}
         {riderDetailsModal && (
           <div
             className="admin-modal-overlay"
@@ -980,40 +1028,27 @@ export default function AdminOrders({
               </div>
 
               <div className="admin-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ background: 'var(--paper)', padding: '16px', borderRadius: '6px', border: '1px solid var(--rule)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <div>
-                      <span style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase' }}>ডেলিভারিম্যানের নাম</span>
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--ink)' }}>
-                        {riderDetailsModal.delivery_rider_name}
-                      </div>
-                    </div>
-                    <span style={{ background: '#dcfce7', color: '#166534', fontSize: '11.5px', padding: '3px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                      {riderDetailsModal.delivery_rider_vehicle || 'মোটরবাইক'}
-                    </span>
+                <div style={{ background: 'var(--paper)', padding: '14px', borderRadius: '6px', border: '1px solid var(--rule)' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--ink)', marginBottom: '4px' }}>
+                    {riderDetailsModal.delivery_rider_name}
                   </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--cream-card)', borderRadius: '4px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Phone size={14} color="var(--ink)" />
-                      <span className="mono font-bold" style={{ fontSize: '14px' }}>
-                        {riderDetailsModal.delivery_rider_phone}
-                      </span>
-                    </div>
+                  <div style={{ fontSize: '13px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                    <Phone size={13} />
+                    <span className="mono font-bold" style={{ color: 'var(--ink)' }}>{riderDetailsModal.delivery_rider_phone}</span>
                     {riderDetailsModal.delivery_rider_phone && (
-                      <a
-                        href={`tel:${riderDetailsModal.delivery_rider_phone}`}
-                        className="admin-btn"
-                        style={{ padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        <PhoneCall size={12} /> কল দিন
+                      <a href={`tel:${riderDetailsModal.delivery_rider_phone}`} className="quick-icon-btn call-action small" title="কল দিন">
+                        <PhoneCall size={12} />
                       </a>
                     )}
                   </div>
-
-                  {riderDetailsModal.delivery_note && (
+                  {riderDetailsModal.delivery_rider_vehicle && (
                     <div style={{ fontSize: '12.5px', color: 'var(--muted)', marginTop: '6px' }}>
-                      <strong>নোট:</strong> {riderDetailsModal.delivery_note}
+                      বাহন: <strong>{riderDetailsModal.delivery_rider_vehicle}</strong>
+                    </div>
+                  )}
+                  {riderDetailsModal.delivery_note && (
+                    <div style={{ marginTop: '10px', padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', fontSize: '12px', color: '#92400e' }}>
+                      নোট: {riderDetailsModal.delivery_note}
                     </div>
                   )}
                 </div>
@@ -1038,16 +1073,14 @@ export default function AdminOrders({
                   className="admin-btn"
                   onClick={() => setRiderDetailsModal(null)}
                 >
-                  বন্ধ করুন
+                  ঠিক আছে
                 </button>
               </div>
             </motion.div>
           </div>
         )}
 
-        
-        
-        {/* Address Modal */}
+        {/* 4. Address Modal */}
         {viewAddressModal && (
           <div
             className="admin-modal-overlay"
@@ -1105,7 +1138,7 @@ export default function AdminOrders({
           </div>
         )}
 
-        {/* Full Order Info Modal */}
+        {/* 5. Full Order Info Modal */}
         {viewFullOrderModal && (
           <div
             className="admin-modal-overlay"
@@ -1123,7 +1156,7 @@ export default function AdminOrders({
               <div className="admin-modal-header">
                 <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
                   <Package size={18} color="var(--ink)" />
-                  <span>অর্ডার বিস্তারিত</span>
+                  <span>প্যাকেজ অর্ডার বিস্তারিত</span>
                 </h4>
                 <button
                   type="button"
@@ -1139,28 +1172,28 @@ export default function AdminOrders({
                 {/* 1. Header Row (Order ID & Status) */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1.5px dashed var(--rule)', paddingBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Order Code</div>
-                    <div className="mono" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)', margin: '2px 0' }}>{viewFullOrderModal.order_code || `#ORD-${viewFullOrderModal.id}`}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Package Order Code</div>
+                    <div className="mono" style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)', margin: '2px 0' }}>
+                      {viewFullOrderModal.order_code || `#PK-${viewFullOrderModal.id}`}
+                    </div>
                     <div style={{ fontSize: '12.5px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Calendar size={13}/> {new Date(viewFullOrderModal.created_at).toLocaleDateString('bn-BD')}
-                      <Clock size={13}/> {new Date(viewFullOrderModal.created_at).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}
+                      <Calendar size={13}/> {new Date(viewFullOrderModal.created_at || Date.now()).toLocaleDateString('bn-BD')}
+                      <Clock size={13}/> {new Date(viewFullOrderModal.created_at || Date.now()).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>বর্তমান স্ট্যাটাস</div>
-                    <span className={`status-badge ${viewFullOrderModal.status}`} style={{ fontSize: '13px', padding: '6px 12px' }}>
-                      {viewFullOrderModal.status === 'pending' && 'পেন্ডিং'}
-                      {viewFullOrderModal.status === 'processing' && 'প্রসেসিং'}
-                      {viewFullOrderModal.status === 'shipped' && 'শিফড (অন-ওয়ে)'}
-                      {viewFullOrderModal.status === 'delivered' && 'ডেলিভার্ড'}
-                      {viewFullOrderModal.status === 'cancelled' && 'বাতিল'}
+                    <span className={`status-badge status-${normalizeStatus(viewFullOrderModal.status)}`} style={{ fontSize: '13px', padding: '6px 12px' }}>
+                      {getStatusLabel(viewFullOrderModal.status)}
                     </span>
                   </div>
                 </div>
 
                 {/* 2. Customer Info (Grid) */}
                 <div>
-                  <h5 style={{ margin: '0 0 12px 0', fontSize: '14.5px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}><User size={15}/> কাস্টমার তথ্য</h5>
+                  <h5 style={{ margin: '0 0 12px 0', fontSize: '14.5px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={15}/> কাস্টমার তথ্য
+                  </h5>
                   <div style={{ background: 'var(--paper)', padding: '16px', borderRadius: '6px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                     <div>
                       <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '2px' }}>নাম</div>
@@ -1181,7 +1214,9 @@ export default function AdminOrders({
 
                 {/* 3. Items List */}
                 <div>
-                  <h5 style={{ margin: '0 0 12px 0', fontSize: '14.5px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}><Package size={15}/> অর্ডারকৃত পণ্য ({toBengaliNumber(viewFullOrderModal.items_json?.length || 0)} টি)</h5>
+                  <h5 style={{ margin: '0 0 12px 0', fontSize: '14.5px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Package size={15}/> প্যাকেজের পণ্যসমূহ ({toBengaliNumber((Array.isArray(viewFullOrderModal.items_json) ? viewFullOrderModal.items_json : JSON.parse(viewFullOrderModal.items_json || '[]')).length)} টি)
+                  </h5>
                   <div style={{ border: '1px solid var(--rule)', borderRadius: '6px', overflow: 'hidden' }}>
                     <table style={{ width: '100%', fontSize: '13.5px', borderCollapse: 'collapse' }}>
                       <thead style={{ background: 'var(--paper)' }}>
@@ -1191,10 +1226,15 @@ export default function AdminOrders({
                         </tr>
                       </thead>
                       <tbody>
-                        {viewFullOrderModal.items_json?.map((it, idx) => (
-                          <tr key={idx} style={{ borderBottom: idx === (viewFullOrderModal.items_json?.length || 1) - 1 ? 'none' : '1px solid var(--rule)' }}>
+                        {(Array.isArray(viewFullOrderModal.items_json) ? viewFullOrderModal.items_json : JSON.parse(viewFullOrderModal.items_json || '[]')).map((it, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid var(--rule)' }}>
                             <td style={{ padding: '12px' }}>
-                              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{it.brand} <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: '12px' }}>({it.catBn || it.unit})</span></div>
+                              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                                {it.brand || it.product_name || it.name}{' '}
+                                <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: '12px' }}>
+                                  ({it.catBn || it.category_name || it.unit})
+                                </span>
+                              </div>
                               <div className="mono" style={{ fontSize: '12.5px', color: 'var(--muted)', marginTop: '4px' }}>
                                 {formatStockDisplay(it.qty, it.unit)} × ৳{toBengaliNumber(it.price)}
                               </div>
@@ -1211,14 +1251,19 @@ export default function AdminOrders({
 
                 {/* 4. Payment & Summary */}
                 <div>
-                  <h5 style={{ margin: '0 0 12px 0', fontSize: '14.5px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}><CreditCard size={15}/> পেমেন্ট ও বিলিং</h5>
+                  <h5 style={{ margin: '0 0 12px 0', fontSize: '14.5px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CreditCard size={15}/> পেমেন্ট ও বিলিং
+                  </h5>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-                    
                     {/* Payment Details */}
                     <div style={{ background: 'var(--paper)', padding: '16px', borderRadius: '6px', border: '1px solid var(--rule)' }}>
                       <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>পেমেন্ট মাধ্যম</div>
                       <div className="payment-type-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '6px 12px' }}>
-                        {viewFullOrderModal.payment_method === 'cod' ? <><Banknote size={14}/> ক্যাশ অন ডেলিভারি</> : <><CreditCard size={14}/> {viewFullOrderModal.payment_method}</>}
+                        {viewFullOrderModal.payment_method === 'cod' || !viewFullOrderModal.payment_method || viewFullOrderModal.payment_method.includes('ক্যাশ') ? (
+                          <><Banknote size={14}/> ক্যাশ অন ডেলিভারি</>
+                        ) : (
+                          <><CreditCard size={14}/> {viewFullOrderModal.payment_method}</>
+                        )}
                       </div>
                       
                       {viewFullOrderModal.payment_method !== 'cod' && (
@@ -1235,19 +1280,6 @@ export default function AdminOrders({
                               <div className="mono" style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>{viewFullOrderModal.sender_number}</div>
                             </div>
                           )}
-                          {viewFullOrderModal.payment_status === 'verified' && (
-                            <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '8px 10px', borderRadius: '6px', fontSize: '12px', color: '#065f46', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <Check size={14} style={{ color: '#059669', flexShrink: 0 }} />
-                              <div>
-                                <strong>স্বয়ংক্রিয় গেটওয়ে দ্বারা ভেরিফাইড</strong>
-                                {viewFullOrderModal.payment_verified_at && (
-                                  <div style={{ fontSize: '11px', color: '#047857' }}>
-                                    যাচাইয়ের তারিখ: {new Date(viewFullOrderModal.payment_verified_at).toLocaleString('bn-BD')}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -1258,6 +1290,12 @@ export default function AdminOrders({
                         <span style={{ color: 'var(--muted)' }}>পণ্যের মূল্য:</span>
                         <span className="mono font-bold">৳{toBengaliNumber(viewFullOrderModal.subtotal || (viewFullOrderModal.total_amount - (viewFullOrderModal.delivery_fee || 0)))}</span>
                       </div>
+                      {viewFullOrderModal.discount_total > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', color: '#16a34a' }}>
+                          <span>প্যাকেজ ছাড়:</span>
+                          <span className="mono font-bold">-৳{toBengaliNumber(viewFullOrderModal.discount_total)}</span>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px' }}>
                         <span style={{ color: 'var(--muted)' }}>ডেলিভারি ফি:</span>
                         <span className="mono font-bold">৳{toBengaliNumber(viewFullOrderModal.delivery_fee || 0)}</span>
@@ -1268,17 +1306,27 @@ export default function AdminOrders({
                         <span className="mono" style={{ fontSize: '20px', color: 'var(--chili)' }}>৳{toBengaliNumber(viewFullOrderModal.total_amount)}</span>
                       </div>
                     </div>
-
                   </div>
                 </div>
               </div>
               
-              <div className="admin-modal-footer" style={{ position: 'sticky', bottom: 0, background: 'var(--cream-card)', borderTop: '1px solid var(--rule)' }}>
+              <div className="admin-modal-footer" style={{ position: 'sticky', bottom: 0, background: 'var(--cream-card)', borderTop: '1px solid var(--rule)', display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="admin-btn secondary"
+                  onClick={() => {
+                    onOpenReceipt(viewFullOrderModal);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Printer size={14} />
+                  <span>রসিদ প্রিন্ট</span>
+                </button>
                 <button
                   type="button"
                   className="admin-btn"
                   onClick={() => setViewFullOrderModal(null)}
-                  style={{ width: '100%' }}
+                  style={{ flex: 1 }}
                 >
                   বন্ধ করুন
                 </button>
@@ -1287,7 +1335,7 @@ export default function AdminOrders({
           </div>
         )}
 
-        {/* View Bill Modal */}
+        {/* 6. View Bill Modal */}
         {viewBillModal && (
           <div
             className="admin-modal-overlay"
@@ -1321,8 +1369,16 @@ export default function AdminOrders({
                 <div style={{ background: 'var(--paper)', padding: '12px', borderRadius: '6px', border: '1px solid var(--rule)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
                     <span style={{ color: 'var(--muted)' }}>পণ্যের মূল্য:</span>
-                    <span className="mono font-bold" style={{ color: 'var(--ink)' }}>৳{toBengaliNumber(viewBillModal.subtotal || (viewBillModal.total_amount - (viewBillModal.delivery_fee || 0)))}</span>
+                    <span className="mono font-bold" style={{ color: 'var(--ink)' }}>
+                      ৳{toBengaliNumber(viewBillModal.subtotal || (viewBillModal.total_amount - (viewBillModal.delivery_fee || 0)))}
+                    </span>
                   </div>
+                  {viewBillModal.discount_total > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: '#16a34a' }}>
+                      <span>প্যাকেজ ছাড়:</span>
+                      <span className="mono font-bold">-৳{toBengaliNumber(viewBillModal.discount_total)}</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
                     <span style={{ color: 'var(--muted)' }}>ডেলিভারি ফি:</span>
                     <span className="mono font-bold" style={{ color: 'var(--ink)' }}>৳{toBengaliNumber(viewBillModal.delivery_fee || 0)}</span>
@@ -1338,7 +1394,7 @@ export default function AdminOrders({
                   <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>পেমেন্ট মাধ্যম</div>
                   <div>
                     <span className="payment-type-pill" style={{ display: 'inline-flex', fontSize: '13px', padding: '6px 12px' }}>
-                      {viewBillModal.payment_method === 'cod' ? (
+                      {viewBillModal.payment_method === 'cod' || !viewBillModal.payment_method || viewBillModal.payment_method.includes('ক্যাশ') ? (
                         <>
                           <Banknote size={14} style={{ marginRight: '6px' }} /> ক্যাশ অন ডেলিভারি
                         </>
@@ -1382,7 +1438,7 @@ export default function AdminOrders({
           </div>
         )}
 
-        {/* View Items Modal */}
+        {/* 7. View Items Modal */}
         {viewItemsModal && (
           <div
             className="admin-modal-overlay"
@@ -1400,7 +1456,7 @@ export default function AdminOrders({
               <div className="admin-modal-header">
                 <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
                   <Package size={18} color="var(--ink)" />
-                  <span>অর্ডারকৃত পণ্য তালিকা</span>
+                  <span>প্যাকেজ পণ্য তালিকা</span>
                 </h4>
                 <button
                   type="button"
@@ -1414,16 +1470,20 @@ export default function AdminOrders({
 
               <div className="admin-modal-body">
                 <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: 'var(--muted)' }}>
-                  অর্ডার কোড: <strong>{viewItemsModal.order_code || `#ORD-${viewItemsModal.id}`}</strong>
+                  অর্ডার কোড: <strong>{viewItemsModal.order_code || `#PK-${viewItemsModal.id}`}</strong>
                 </p>
                 <div style={{ background: 'var(--paper)', borderRadius: '6px', border: '1px solid var(--rule)', overflow: 'hidden' }}>
                   <table style={{ width: '100%', fontSize: '12.5px', borderCollapse: 'collapse' }}>
                     <tbody>
-                      {viewItemsModal.items_json?.map((it, idx) => (
-                        <tr key={idx} style={{ borderBottom: idx === (viewItemsModal.items_json?.length || 0) - 1 ? 'none' : '1px solid var(--rule)' }}>
+                      {(Array.isArray(viewItemsModal.items_json) ? viewItemsModal.items_json : JSON.parse(viewItemsModal.items_json || '[]')).map((it, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--rule)' }}>
                           <td style={{ padding: '8px 10px' }}>
-                            <div style={{ fontWeight: 600, color: 'var(--ink)' }}>{it.brand}</div>
-                            <div style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '2px' }}>({it.catBn || it.unit})</div>
+                            <div style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                              {it.brand || it.product_name || it.name}
+                            </div>
+                            <div style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '2px' }}>
+                              ({it.catBn || it.category_name || it.unit})
+                            </div>
                           </td>
                           <td className="mono" style={{ padding: '8px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span style={{ color: 'var(--muted)' }}>{formatStockDisplay(it.qty, it.unit)} × ৳{toBengaliNumber(it.price)}</span>
@@ -1440,7 +1500,7 @@ export default function AdminOrders({
               
               <div className="admin-modal-footer">
                 <div style={{ flex: 1, textAlign: 'left', fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>
-                  মোট বিল: <span className="mono">৳{toBengaliNumber(viewItemsModal.subtotal || viewItemsModal.total_amount - (viewItemsModal.delivery_fee || 0))}</span>
+                  মোট বিল: <span className="mono">৳{toBengaliNumber(viewItemsModal.total_amount)}</span>
                 </div>
                 <button
                   type="button"

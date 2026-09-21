@@ -62,6 +62,7 @@ export default function DeliveryRiderPanel({ onNavigateHome }) {
   const parts = pathname.split("/");
   const activeTab = parts[2] && parts[2] !== '' ? parts[2] : 'dashboard';
   const setActiveTab = (tab) => { navigate(`/delivery-man/${tab}`); }; // 'dashboard' | 'orders' | 'reports' | 'profile'
+  const [orderFilterTab, setOrderFilterTab] = useState('active');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState(null);
@@ -154,7 +155,7 @@ export default function DeliveryRiderPanel({ onNavigateHome }) {
   }, [riderToken]);
 
   // Update order status handler
-  const handleUpdateOrderStatus = async (orderId, status, note) => {
+  const handleUpdateOrderStatus = async (orderId, status, note, isPackage) => {
     try {
       const res = await fetch(`/api/rider/orders/${orderId}/status`, {
         method: 'PUT',
@@ -162,7 +163,7 @@ export default function DeliveryRiderPanel({ onNavigateHome }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${riderToken}`
         },
-        body: JSON.stringify({ status, note })
+        body: JSON.stringify({ status, note, is_package: isPackage })
       });
 
       const data = await res.json();
@@ -187,7 +188,7 @@ export default function DeliveryRiderPanel({ onNavigateHome }) {
   const handleQuickMarkDelivered = async (order) => {
     const isCOD = !order.payment_method || order.payment_method.toLowerCase().includes('cash') || order.payment_method.includes('ক্যাশ');
     const note = isCOD ? `নগদ ৳${toBengaliNumber(order.total_amount)} গ্রহণ করা হয়েছে।` : 'পণ্য হস্তান্তর সম্পন্ন।';
-    await handleUpdateOrderStatus(order.id, 'delivered', note);
+    await handleUpdateOrderStatus(order.id, 'delivered', note, order.is_package || order.is_package_order);
   };
 
   // Update Profile
@@ -486,7 +487,11 @@ export default function DeliveryRiderPanel({ onNavigateHome }) {
               rider={rider}
               orders={orders}
               stats={stats}
-              onNavigateTab={(tab) => { setActiveTab(tab); window.scrollTo(0, 0); }}
+              onNavigateTab={(tab, filter) => {
+                if (filter) setOrderFilterTab(filter);
+                setActiveTab(tab);
+                window.scrollTo(0, 0);
+              }}
               onOpenOrderModal={(order) => { setActiveTab('orders'); }}
               onQuickMarkDelivered={handleQuickMarkDelivered}
             />
@@ -495,6 +500,8 @@ export default function DeliveryRiderPanel({ onNavigateHome }) {
           {activeTab === 'orders' && (
             <DeliveryRiderOrders
               orders={orders}
+              initialTab={orderFilterTab}
+              onTabChange={(t) => setOrderFilterTab(t)}
               onUpdateStatus={handleUpdateOrderStatus}
               onOpenReceipt={(order) => setReceiptOrder(order)}
               loading={loadingOrders}

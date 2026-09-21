@@ -29,7 +29,7 @@ import {
   CartesianGrid,
   Legend
 } from 'recharts';
-import { toBengaliNumber } from '../utils/bengali.js';
+import { toBengaliNumber, normalizeOrderStatus, getOrderStatusBn } from '../utils/bengali.js';
 
 export default function AdminDashboard({
   orders = [],
@@ -43,23 +43,23 @@ export default function AdminDashboard({
     return categories.reduce((sum, cat) => sum + (cat.brands?.length || 0), 0);
   }, [categories]);
 
-  // Order status counts
-  const pendingOrders = useMemo(() => orders.filter((o) => o.status === 'pending'), [orders]);
-  const processingOrders = useMemo(() => orders.filter((o) => o.status === 'processing'), [orders]);
-  const shippedOrders = useMemo(() => orders.filter((o) => o.status === 'shipped'), [orders]);
-  const deliveredOrders = useMemo(() => orders.filter((o) => o.status === 'delivered'), [orders]);
-  const cancelledOrders = useMemo(() => orders.filter((o) => o.status === 'cancelled'), [orders]);
+  // Order status counts using normalized status
+  const pendingOrders = useMemo(() => orders.filter((o) => normalizeOrderStatus(o.status) === 'pending'), [orders]);
+  const processingOrders = useMemo(() => orders.filter((o) => normalizeOrderStatus(o.status) === 'processing'), [orders]);
+  const shippedOrders = useMemo(() => orders.filter((o) => normalizeOrderStatus(o.status) === 'shipped'), [orders]);
+  const deliveredOrders = useMemo(() => orders.filter((o) => normalizeOrderStatus(o.status) === 'delivered'), [orders]);
+  const cancelledOrders = useMemo(() => orders.filter((o) => normalizeOrderStatus(o.status) === 'cancelled'), [orders]);
 
   // Total sales from successful/active orders (excluding cancelled)
   const totalSales = useMemo(() => {
     return orders
-      .filter((o) => o.status !== 'cancelled')
+      .filter((o) => normalizeOrderStatus(o.status) !== 'cancelled')
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   }, [orders]);
 
   const deliveredSales = useMemo(() => {
     return orders
-      .filter((o) => o.status === 'delivered')
+      .filter((o) => normalizeOrderStatus(o.status) === 'delivered')
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   }, [orders]);
 
@@ -525,7 +525,7 @@ export default function AdminDashboard({
               </thead>
               <tbody>
                 {recentOrders.map((o) => (
-                  <tr key={o.id}>
+                  <tr key={o.order_code ? `dash-ord-${o.order_code}` : `dash-ord-${o.is_package ? 'pkg' : 'reg'}-${o.id}`}>
                     <td className="mono" style={{ fontWeight: 700 }}>
                       {o.order_code || `#ORD-${o.id}`}
                     </td>
@@ -552,12 +552,8 @@ export default function AdminDashboard({
                       </span>
                     </td>
                     <td>
-                      <span className={`status-badge status-${o.status}`}>
-                        {o.status === 'pending' && 'পেন্ডিং'}
-                        {o.status === 'processing' && 'প্রসেসিং'}
-                        {o.status === 'shipped' && 'পাঠানো হয়েছে'}
-                        {o.status === 'delivered' && 'ডেলিভার্ড'}
-                        {o.status === 'cancelled' && 'বাতিল'}
+                      <span className={`status-badge status-${normalizeOrderStatus(o.status)}`}>
+                        {getOrderStatusBn(o.status)}
                       </span>
                     </td>
                     <td style={{ textAlign: 'center' }}>

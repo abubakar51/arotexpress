@@ -2,6 +2,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowDown } from 'lucide-react';
+import HeroPackageBox from './HeroPackageBox.jsx';
 
 export default function Hero({ settings, categories = [], onExploreClick }) {
   return (
@@ -48,6 +49,9 @@ export default function Hero({ settings, categories = [], onExploreClick }) {
           <span>লিস্ট দেখুন</span> <ArrowDown size={15} />
         </motion.button>
       </motion.div>
+
+      {/* Right Column: Hero Package Box (10 products, 2 sides) */}
+      <HeroPackageBox />
     </motion.section>
   );
 }

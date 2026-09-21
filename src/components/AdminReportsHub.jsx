@@ -33,6 +33,7 @@ import { printElement } from '../utils/printHelper.js';
 
 export default function AdminReportsHub({
   orders = [],
+  packageOrders = [],
   categories = [],
   usersList = [],
   deliveryAreas = [],
@@ -42,8 +43,9 @@ export default function AdminReportsHub({
   // Modal State: null if closed, or the string report key if open
   const [selectedReportModal, setSelectedReportModal] = useState(null);
 
-  // Time Filter State
+  // Time & Source Filter State
   const [timeFilter, setTimeFilter] = useState('this_month'); // 'today' | 'yesterday' | 'last_7_days' | 'this_month' | 'last_30_days' | 'all' | 'custom'
+  const [orderSourceFilter, setOrderSourceFilter] = useState('all'); // 'all' | 'regular' | 'package'
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -53,6 +55,23 @@ export default function AdminReportsHub({
   const [searchTerm, setSearchTerm] = useState('');
   const [manifestRiderId, setManifestRiderId] = useState('');
 
+  // Combined orders list with package classification
+  const allOrdersList = useMemo(() => {
+    const list = [];
+    (orders || []).forEach((o) => {
+      list.push({ ...o, is_package_order: false, order_type_label: 'সাধারণ অর্ডার' });
+    });
+    (packageOrders || []).forEach((po) => {
+      list.push({
+        ...po,
+        is_package_order: true,
+        order_type_label: 'প্যাকেজ অর্ডার',
+        order_code: po.order_code || `#PK-${po.id}`
+      });
+    });
+    return list;
+  }, [orders, packageOrders]);
+
   // Print Handling using Isolated Print Engine
   const handlePrint = () => {
     // Determine optimal orientation: Multi-column wide data tables benefit from Landscape
@@ -60,6 +79,7 @@ export default function AdminReportsHub({
       'delivery_manifest', 
       'order_status', 
       'sales_summary', 
+      'package_sales',
       'current_stock', 
       'top_customers', 
       'area_sales', 
@@ -123,10 +143,14 @@ export default function AdminReportsHub({
     return 'সর্বকালের সামগ্রিক হিসাব (All Time)';
   }, [timeFilter, customStartDate, customEndDate]);
 
-  // Filter Orders based on Date Filter
+  // Filter Orders based on Date and Source Filter
   const filteredOrders = useMemo(() => {
     const now = new Date();
-    return orders.filter((o) => {
+    return allOrdersList.filter((o) => {
+      // Source filter
+      if (orderSourceFilter === 'regular' && o.is_package_order) return false;
+      if (orderSourceFilter === 'package' && !o.is_package_order) return false;
+
       if (!o.created_at) return true;
       const orderDate = new Date(o.created_at);
 
@@ -165,7 +189,7 @@ export default function AdminReportsHub({
       }
       return true; // 'all'
     });
-  }, [orders, timeFilter, customStartDate, customEndDate]);
+  }, [allOrdersList, orderSourceFilter, timeFilter, customStartDate, customEndDate]);
 
   // All Products Flattened List with Category info
   const allProductsList = useMemo(() => {
@@ -524,7 +548,7 @@ export default function AdminReportsHub({
   // 8. DELIVERY MAN RUN-SHEET / MANIFEST
   // CRITICAL REQUIREMENT: Only include orders with status 'shipped' (or 'অন-ওয়ে') because delivery man only has shipped orders!
   const deliveryManifestData = useMemo(() => {
-    let shippedList = orders.filter(
+    let shippedList = allOrdersList.filter(
       (o) => o.status === 'shipped' || o.status === 'অন-ওয়ে'
     );
     if (manifestRiderId) {
@@ -542,7 +566,34 @@ export default function AdminReportsHub({
       );
     }
     return shippedList;
-  }, [orders, searchTerm, manifestRiderId]);
+  }, [allOrdersList, searchTerm, manifestRiderId]);
+
+  // 12. PACKAGE ORDERS DATA FOR REPORT
+  const packageOrdersData = useMemo(() => {
+    let list = allOrdersList.filter((o) => o.is_package_order);
+    if (statusFilter !== 'all') {
+      list = list.filter((o) => {
+        if (statusFilter === 'pending') return o.status === 'pending' || o.status === 'পেন্ডিং';
+        if (statusFilter === 'processing') return o.status === 'processing' || o.status === 'প্রসেসিং';
+        if (statusFilter === 'shipped') return o.status === 'shipped' || o.status === 'অন-ওয়ে';
+        if (statusFilter === 'delivered') return o.status === 'delivered' || o.status === 'ডেলিভার্ড' || o.status === 'সম্পন্ন';
+        if (statusFilter === 'cancelled') return o.status === 'cancelled' || o.status === 'বাতিল';
+        return true;
+      });
+    }
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(
+        (o) =>
+          (o.order_code && o.order_code.toLowerCase().includes(q)) ||
+          (o.customer_name && o.customer_name.toLowerCase().includes(q)) ||
+          (o.customer_phone && o.customer_phone.includes(q)) ||
+          (o.delivery_address && o.delivery_address.toLowerCase().includes(q)) ||
+          (o.package_name && o.package_name.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [allOrdersList, statusFilter, searchTerm]);
 
   // Store metadata for print header
   const siteName = settings?.site_name || 'আড়ৎ এক্সপ্রেস';
@@ -563,7 +614,7 @@ export default function AdminReportsHub({
       icon: Truck,
       color: '#B45309',
       bgColor: '#FEF3C7',
-      badge: `${toBengaliNumber(orders.filter(o => o.status === 'shipped' || o.status === 'অন-ওয়ে').length)} টি অন-ওয়ে অর্ডার`,
+      badge: `${toBengaliNumber(allOrdersList.filter(o => o.status === 'shipped' || o.status === 'অন-ওয়ে').length)} টি অন-ওয়ে অর্ডার`,
       badgeColor: '#B45309',
       highlight: true
     },
@@ -588,6 +639,17 @@ export default function AdminReportsHub({
       bgColor: '#DBEAFE',
       badge: `${toBengaliNumber(filteredOrders.length)} টি অর্ডার`,
       badgeColor: '#1D4ED8'
+    },
+    {
+      id: 'package_sales',
+      category: 'বিক্রয় ও আয়',
+      title: 'প্যাকেজ ও স্পেশাল বক্স বিক্রয় রিপোর্ট',
+      subtitle: 'সকল স্পেশাল প্যাকেজ ও সেভিং বান্ডেলের বিস্তারিত বিক্রয় রিপোর্ট ও রাজস্ব',
+      icon: Package,
+      color: '#E11D48',
+      bgColor: '#FFE4E6',
+      badge: `${toBengaliNumber((packageOrders || []).length)} টি প্যাকেজ অর্ডার`,
+      badgeColor: '#E11D48'
     },
     {
       id: 'payment_methods',
@@ -687,6 +749,7 @@ export default function AdminReportsHub({
   const reportTitleMap = {
     sales_summary: 'বিক্রয় ও অর্ডার বিশ্লেষণ রিপোর্ট (Sales Summary Report)',
     order_status: 'অর্ডার স্ট্যাটাস বিবরণী তালিকা (Order Status Report)',
+    package_sales: 'প্যাকেজ ও স্পেশাল বক্স বিক্রয় রিপোর্ট (Package & Bundle Sales Report)',
     payment_methods: 'পেমেন্ট মেথড ভিত্তিক আয় রিপোর্ট (Payment Methods Breakdown)',
     current_stock: 'বর্তমান গুদাম স্টক ব্যালেন্স শিট (Current Inventory Stock Sheet)',
     low_stock: 'লো-স্টক ও রি-অর্ডার ওয়ার্নিং শিট (Low Stock Alert Report)',
@@ -765,7 +828,7 @@ export default function AdminReportsHub({
               <div>
                 <div style={{ fontSize: '11px', color: '#92400E', fontWeight: 700 }}>ডেলিভারির জন্য প্রস্তুত (Shipped)</div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: '#B45309' }} className="mono">
-                  {toBengaliNumber(orders.filter(o => o.status === 'shipped' || o.status === 'অন-ওয়ে').length)} টি পার্সেল
+                  {toBengaliNumber(allOrdersList.filter(o => o.status === 'shipped' || o.status === 'অন-ওয়ে').length)} টি পার্সেল
                 </div>
               </div>
             </div>
@@ -785,7 +848,27 @@ export default function AdminReportsHub({
               <div>
                 <div style={{ fontSize: '11px', color: '#166534', fontWeight: 700 }}>মোট সম্পন্ন ডেলিভারি</div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: '#15803D' }} className="mono">
-                  {toBengaliNumber(orders.filter(o => o.status === 'delivered' || o.status === 'ডেলিভার্ড').length)} টি
+                  {toBengaliNumber(allOrdersList.filter(o => o.status === 'delivered' || o.status === 'ডেলিভার্ড' || o.status === 'সম্পন্ন').length)} টি
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: '#FFE4E6',
+                border: '1.5px solid #E11D48',
+                padding: '8px 14px',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <Package size={18} style={{ color: '#E11D48' }} />
+              <div>
+                <div style={{ fontSize: '11px', color: '#9F1239', fontWeight: 700 }}>প্যাকেজ অর্ডার</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#E11D48' }} className="mono">
+                  {toBengaliNumber((packageOrders || []).length)} টি
                 </div>
               </div>
             </div>
@@ -1248,7 +1331,19 @@ export default function AdminReportsHub({
 
                 {/* Secondary Filters */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  {selectedReportModal === 'order_status' && (
+                  {['sales_summary', 'order_status', 'payment_methods', 'area_sales', 'top_customers'].includes(selectedReportModal) && (
+                    <select
+                      value={orderSourceFilter}
+                      onChange={(e) => setOrderSourceFilter(e.target.value)}
+                      style={{ padding: '4px 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid var(--ink)', background: '#fff', fontWeight: 600 }}
+                    >
+                      <option value="all">📦 সব অর্ডার (সাধারণ + প্যাকেজ)</option>
+                      <option value="regular">🛒 শুধু সাধারণ অর্ডার</option>
+                      <option value="package">🎁 শুধু প্যাকেজ অর্ডার</option>
+                    </select>
+                  )}
+
+                  {(selectedReportModal === 'order_status' || selectedReportModal === 'package_sales') && (
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
@@ -1499,7 +1594,7 @@ export default function AdminReportsHub({
                               const isCod = (ord.payment_method || 'cod').toLowerCase().includes('cod') || (ord.payment_method || '').includes('ক্যাশ');
                               const collectAmount = isCod ? ord.total_amount : 0;
                               return (
-                                <tr key={ord.id} style={{ borderBottom: '1px solid #ddd' }}>
+                                <tr key={ord.order_code ? `manifest-${ord.order_code}` : `manifest-${ord.is_package ? 'pkg' : 'reg'}-${ord.id}-${idx}`} style={{ borderBottom: '1px solid #ddd' }}>
                                   <td style={{ padding: '6px', textAlign: 'center', fontWeight: 700 }} className="mono">
                                     {toBengaliNumber(idx + 1)}
                                   </td>
@@ -1719,8 +1814,8 @@ export default function AdminReportsHub({
                               </td>
                             </tr>
                           ) : (
-                            orderStatusData.map((ord) => (
-                              <tr key={ord.id} style={{ borderBottom: '1px solid #e8e8e8' }}>
+                            orderStatusData.map((ord, oIdx) => (
+                              <tr key={ord.order_code ? `status-rpt-${ord.order_code}` : `status-rpt-${ord.is_package ? 'pkg' : 'reg'}-${ord.id}-${oIdx}`} style={{ borderBottom: '1px solid #e8e8e8' }}>
                                 <td style={{ padding: '6px', fontWeight: 700 }} className="mono">
                                   {ord.order_code || `#${ord.id}`}
                                 </td>
@@ -1782,6 +1877,124 @@ export default function AdminReportsHub({
                               </td>
                               <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--green)' }} className="mono">
                                 {formatCurrency(orderStatusData.reduce((s, o) => s + (Number(o.total_amount) || 0), 0))}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+                  )}
+
+                  {/* ------------------------------------------------------------- */}
+                  {/* MODAL REPORT: PACKAGE & BUNDLE SALES REPORT                   */}
+                  {/* ------------------------------------------------------------- */}
+                  {selectedReportModal === 'package_sales' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#555' }}>
+                          মোট প্যাকেজ অর্ডার: <strong>{toBengaliNumber(packageOrdersData.length)} টি</strong> | 
+                          স্ট্যাটাস ফিল্টার: <strong>{statusFilter === 'all' ? 'সকল স্ট্যাটাস' : statusFilter}</strong>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#9F1239', fontWeight: 700 }}>
+                          মোট প্যাকেজ বিক্রয়: <strong>{formatCurrency(packageOrdersData.reduce((s, o) => s + (Number(o.total_amount) || 0), 0))}</strong>
+                        </div>
+                      </div>
+
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', margin: '6px 0' }}>
+                        <thead>
+                          <tr style={{ background: '#f0f0f0', borderTop: '1.5px solid #000', borderBottom: '1.5px solid #000' }}>
+                            <th style={{ padding: '6px', textAlign: 'left' }}>অর্ডার নং</th>
+                            <th style={{ padding: '6px', textAlign: 'left' }}>তারিখ</th>
+                            <th style={{ padding: '6px', textAlign: 'left' }}>প্যাকেজের নাম</th>
+                            <th style={{ padding: '6px', textAlign: 'left' }}>গ্রাহক নাম ও ফোন</th>
+                            <th style={{ padding: '6px', textAlign: 'left' }}>ঠিকানা ও এলাকা</th>
+                            <th style={{ padding: '6px', textAlign: 'center' }}>পেমেন্ট</th>
+                            <th style={{ padding: '6px', textAlign: 'center' }}>স্ট্যাটাস</th>
+                            <th style={{ padding: '6px', textAlign: 'right' }}>মোট টাকা (৳)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {packageOrdersData.length === 0 ? (
+                            <tr>
+                              <td colSpan="8" style={{ textAlign: 'center', padding: '18px', color: '#777' }}>
+                                কোনো প্যাকেজ অর্ডার পাওয়া যায়নি।
+                              </td>
+                            </tr>
+                          ) : (
+                            packageOrdersData.map((ord, oIdx) => (
+                              <tr key={`pkg-rpt-${ord.id || oIdx}`} style={{ borderBottom: '1px solid #e8e8e8' }}>
+                                <td style={{ padding: '6px', fontWeight: 700 }} className="mono">
+                                  {ord.order_code || `#PK-${ord.id}`}
+                                </td>
+                                <td style={{ padding: '6px' }}>
+                                  {formatDateBn(ord.created_at)}
+                                </td>
+                                <td style={{ padding: '6px' }}>
+                                  <div style={{ fontWeight: 700, color: '#9F1239' }}>{ord.package_name || 'স্পেশাল প্যাকেজ'}</div>
+                                  {ord.items && Array.isArray(ord.items) && ord.items.length > 0 && (
+                                    <div style={{ fontSize: '10px', color: '#666' }}>
+                                      {ord.items.map(it => `${it.name || it.product_name} (${it.quantity || 1} ${it.unit || 'টি'})`).join(', ')}
+                                    </div>
+                                  )}
+                                </td>
+                                <td style={{ padding: '6px' }}>
+                                  <div style={{ fontWeight: 600 }}>{ord.customer_name}</div>
+                                  <div className="mono" style={{ fontSize: '10.5px', color: '#555' }}>{ord.customer_phone}</div>
+                                </td>
+                                <td style={{ padding: '6px' }}>
+                                  <div style={{ fontSize: '10.5px' }}>{ord.delivery_address}</div>
+                                  {ord.delivery_area && (
+                                    <span style={{ fontSize: '9.5px', color: '#666', background: '#eee', padding: '1px 4px', borderRadius: '2px' }}>
+                                      {ord.delivery_area}
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '6px', textAlign: 'center', textTransform: 'uppercase', fontSize: '10px' }}>
+                                  <span style={{ fontWeight: 700 }}>{ord.payment_method || 'COD'}</span>
+                                  {ord.payment_trxid && (
+                                    <div className="mono" style={{ fontSize: '9px', color: '#555' }}>Trx: {ord.payment_trxid}</div>
+                                  )}
+                                </td>
+                                <td style={{ padding: '6px', textAlign: 'center' }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      padding: '2px 5px',
+                                      borderRadius: '3px',
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      background:
+                                        ord.status === 'delivered' || ord.status === 'ডেলিভার্ড' || ord.status === 'সম্পন্ন'
+                                          ? '#dcfce7'
+                                          : ord.status === 'cancelled' || ord.status === 'বাতিল'
+                                          ? '#fee2e2'
+                                          : '#fef9c3',
+                                      color:
+                                        ord.status === 'delivered' || ord.status === 'ডেলিভার্ড' || ord.status === 'সম্পন্ন'
+                                          ? '#166534'
+                                          : ord.status === 'cancelled' || ord.status === 'বাতিল'
+                                          ? '#991b1b'
+                                          : '#854d0e'
+                                    }}
+                                  >
+                                    {ord.status}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '6px', textAlign: 'right', fontWeight: 700, color: '#9F1239' }} className="mono">
+                                  {formatCurrency(ord.total_amount)}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                        {packageOrdersData.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: '#f5f5f5', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 800 }}>
+                              <td colSpan="7" style={{ padding: '6px 8px', textAlign: 'right' }}>
+                                প্যাকেজ অর্ডারের সর্বমোট যোগফল ({toBengaliNumber(packageOrdersData.length)} টি):
+                              </td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#9F1239' }} className="mono">
+                                {formatCurrency(packageOrdersData.reduce((s, o) => s + (Number(o.total_amount) || 0), 0))}
                               </td>
                             </tr>
                           </tfoot>

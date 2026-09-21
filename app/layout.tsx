@@ -75,6 +75,7 @@ export default async function RootLayout({
     const rawCategories = DBManager.getCategories() || [];
     const rawPaymentMethods = DBManager.getPaymentMethods() || [];
     const rawDeliveryAreas = DBManager.getDeliveryAreas() || [];
+    const rawPackageProducts = DBManager.getPackageProducts() || [];
 
     initialData = {
       groups: JSON.parse(JSON.stringify(rawGroups)),
@@ -82,6 +83,7 @@ export default async function RootLayout({
       settings: JSON.parse(JSON.stringify(settings)),
       paymentMethods: JSON.parse(JSON.stringify(rawPaymentMethods)),
       deliveryAreas: JSON.parse(JSON.stringify(rawDeliveryAreas)),
+      packageProducts: JSON.parse(JSON.stringify(rawPackageProducts)),
       defaultDeliveryFee: typeof settings.default_delivery_fee === 'number' ? settings.default_delivery_fee : 60
     };
   } catch (e) {

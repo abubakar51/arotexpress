@@ -2,6 +2,7 @@
 import React from 'react';
 import { AuthProvider } from '../src/context/AuthContext.jsx';
 import { CartProvider } from '../src/context/CartContext.jsx';
+import { PackageBoxProvider } from '../src/context/PackageBoxContext.jsx';
 import { StoreDataProvider } from '../src/context/StoreDataContext';
 
 export default function Providers({
@@ -14,9 +15,11 @@ export default function Providers({
   return (
     <AuthProvider>
       <CartProvider>
-        <StoreDataProvider initialData={initialData}>
-          {children}
-        </StoreDataProvider>
+        <PackageBoxProvider>
+          <StoreDataProvider initialData={initialData}>
+            {children}
+          </StoreDataProvider>
+        </PackageBoxProvider>
       </CartProvider>
     </AuthProvider>
   );

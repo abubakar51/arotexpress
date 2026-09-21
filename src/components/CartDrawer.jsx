@@ -146,6 +146,10 @@ export default function CartDrawer({ onCheckout }) {
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setIsCartOpen(false);
+                    try {
+                      sessionStorage.removeItem('package_order_data');
+                      localStorage.removeItem('arot_active_package_order');
+                    } catch (e) {}
                     onCheckout();
                   }}
                   style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
