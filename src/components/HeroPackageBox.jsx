@@ -152,10 +152,10 @@ export default function HeroPackageBox() {
           gap: '8px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Package size={14} style={{ color: '#006C4C', flexShrink: 0 }} />
-          <span style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text)' }}>
-            প্যাকেজ অফার
+          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text)' }}>
+            ডিসকাউন্ট নিতে আপনার প্যাকেজ বানান
           </span>
           <span
             style={{
@@ -256,7 +256,7 @@ export default function HeroPackageBox() {
             {distinctProductsCount > 0 && (
               <span
                 style={{
-                  fontSize: '10.5px',
+                  fontSize: '11.5px',
                   color: canOrder ? '#006C4C' : '#dc2626',
                   fontWeight: '600'
                 }}
@@ -354,7 +354,7 @@ function PackageProductRow({ product, qty, onInc, onDec }) {
           >
             ৳{toBengaliNumber(fnlPrice)}
           </span>
-          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text)' }}>
+          <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text)' }}>
             /{product.unit}
           </span>
         </div>
