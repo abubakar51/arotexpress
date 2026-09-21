@@ -158,7 +158,7 @@ export default function AdminPackageManagement({
       setCostPrice(String(found.cost_price || 0));
       setSelectedCategoryId(String(found.catId));
       if (!discountAmount) {
-        setDiscountAmount(String(Math.max(5, Math.round(found.price * 0.1)))); // default 10% discount suggestion
+        setDiscountAmount(String(Math.max(5, Math.round(found.price * 0)))); // default 10% discount suggestion
       }
     }
   };
@@ -638,6 +638,7 @@ export default function AdminPackageManagement({
                         value={productName}
                         onChange={(e) => setProductName(e.target.value)}
                         className="admin-input"
+                        disabled
                         style={{ width: '100%', padding: '9px 12px' }}
                       />
                     </div>
@@ -671,6 +672,7 @@ export default function AdminPackageManagement({
                         value={costPrice}
                         onChange={(e) => setCostPrice(e.target.value)}
                         className="admin-input"
+                        disabled
                         style={{ width: '100%', padding: '9px 12px' }}
                       />
                     </div>
@@ -688,6 +690,7 @@ export default function AdminPackageManagement({
                         value={regularPrice}
                         onChange={(e) => setRegularPrice(e.target.value)}
                         className="admin-input"
+                        disabled
                         style={{ width: '100%', padding: '9px 12px' }}
                       />
                     </div>
