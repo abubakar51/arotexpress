@@ -171,7 +171,7 @@ export default function HeroPackageBox() {
           </span>
         </div>
 
-        {totalSavings > 0 ? (
+        {totalSavings > 0 && (
           <span
             style={{
               fontSize: '10.5px',
@@ -184,8 +184,6 @@ export default function HeroPackageBox() {
           >
             সাশ্রয়: ৳{toBengaliNumber(totalSavings)}
           </span>
-        ) : (
-          <p>{''}</p>
         )}
       </div>
 
