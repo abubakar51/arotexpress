@@ -64,9 +64,7 @@ export default function Hero({ settings, categories = [], onExploreClick }) {
         }}
       >
         <HeroPackageBox />
-        {settings?.socials_position !== 'fixed' && (
-          <SocialButtons forceMode="inline" />
-        )}
+        <SocialButtons variant="inline" />
       </div>
     </motion.section>
   );

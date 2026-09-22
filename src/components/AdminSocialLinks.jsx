@@ -25,12 +25,12 @@ import { useCart } from '../context/CartContext.jsx';
 
 // Suggested popular icons & brand defaults
 const POPULAR_SUGGESTIONS = [
-  { name: 'Facebook', icon: 'Facebook', text: 'ফেসবুক পেজ', bg_color: '#1877F2', text_color: '#ffffff' },
-  { name: 'WhatsApp', icon: 'MessageCircle', text: 'হোয়াটসঅ্যাপ মেসেজ', bg_color: '#25D366', text_color: '#ffffff' },
-  { name: 'IMO', icon: 'PhoneCall', text: 'ইমো কল ও চ্যাট', bg_color: '#00A4E4', text_color: '#ffffff' },
-  { name: 'Telegram', icon: 'Send', text: 'টেলিগ্রাম গ্রুপ', bg_color: '#229ED9', text_color: '#ffffff' },
-  { name: 'YouTube', icon: 'Youtube', text: 'ইউটিউব চ্যানেল', bg_color: '#FF0000', text_color: '#ffffff' },
-  { name: 'Instagram', icon: 'Instagram', text: 'ইনস্টাগ্রাম পেজ', bg_color: '#E4405F', text_color: '#ffffff' },
+  { name: 'Facebook', icon: 'Facebook', text: 'ফেসবুক', bg_color: '#1877F2', text_color: '#ffffff' },
+  { name: 'WhatsApp', icon: 'MessageCircle', text: 'হোয়াটসঅ্যাপ', bg_color: '#25D366', text_color: '#ffffff' },
+  { name: 'IMO', icon: 'PhoneCall', text: 'ইমো', bg_color: '#00A4E4', text_color: '#ffffff' },
+  { name: 'Telegram', icon: 'Send', text: 'টেলিগ্রাম', bg_color: '#229ED9', text_color: '#ffffff' },
+  { name: 'YouTube', icon: 'Youtube', text: 'ইউটিউব', bg_color: '#FF0000', text_color: '#ffffff' },
+  { name: 'Instagram', icon: 'Instagram', text: 'ইনস্টাগ্রাম', bg_color: '#E4405F', text_color: '#ffffff' },
   { name: 'Help/Hotline', icon: 'Phone', text: 'জরুরি হেল্পলাইন', bg_color: '#006C4C', text_color: '#ffffff' }
 ];
 
@@ -544,200 +544,228 @@ export default function AdminSocialLinks({ adminToken }) {
 
       </div>
 
-      {/* Modal / Dialog for Add & Edit Social Link */}
+      {/* POPUP MODAL: Add & Edit Social Link */}
       <AnimatePresence>
         {isFormOpen && (
-          <div className="modal-overlay" onClick={() => setIsFormOpen(false)}>
+          <motion.div
+            className="admin-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setIsFormOpen(false)}
+          >
             <motion.div
-              className="modal-content"
-              style={{ maxWidth: '520px', width: '90%', padding: '24px', borderRadius: '12px' }}
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              className="admin-modal-card"
+              style={{ maxWidth: '520px' }}
+              initial={{ scale: 0.92, opacity: 0, y: 16 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 16 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--rule)', paddingBottom: '10px' }}>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>
-                  {editingId ? 'সোশ্যাল লিংক সম্পাদনা' : 'নতুন সোশ্যাল লিংক যোগ'}
+              <div className="admin-modal-header">
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {editingId ? (
+                    <>
+                      <Edit3 size={18} />
+                      <span>সোশ্যাল লিংক এডিট করুন</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={18} />
+                      <span>নতুন সোশ্যাল লিংক যোগ করুন</span>
+                    </>
+                  )}
                 </h3>
                 <button
                   type="button"
+                  className="close-modal-btn"
                   onClick={() => setIsFormOpen(false)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}
+                  aria-label="বন্ধ করুন"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              {/* Quick Presets */}
-              {!editingId && (
-                <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid var(--rule)' }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Sparkles size={12} color="#f59e0b" />
-                    <span>দ্রুত প্রিসেট বেছে নিন (ঐচ্ছিক):</span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {POPULAR_SUGGESTIONS.map((preset, idx) => (
-                      <button
-                        key={`preset-${idx}`}
-                        type="button"
-                        onClick={() => handleApplyPreset(preset)}
-                        style={{
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          border: '1px solid var(--rule)',
-                          background: '#ffffff',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        <SocialLucideIcon name={preset.icon} size={11} color={preset.bg_color} />
-                        <span>{preset.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <form className="admin-modal-form" onSubmit={handleSaveForm}>
+                <div className="admin-modal-body">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Quick Presets for new link */}
+                    {!editingId && (
+                      <div style={{ background: '#F8FAF9', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--rule)' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Sparkles size={13} color="#f59e0b" />
+                          <span>জনপ্রিয় প্রিসেট থেকে বেছে নিন (ঐচ্ছিক):</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {POPULAR_SUGGESTIONS.map((preset, idx) => (
+                            <button
+                              key={`preset-${idx}`}
+                              type="button"
+                              onClick={() => handleApplyPreset(preset)}
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: 'var(--radius-pill)',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                border: '1px solid var(--rule)',
+                                background: '#FFFFFF',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = preset.bg_color; e.currentTarget.style.background = '#F1F5F3'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--rule)'; e.currentTarget.style.background = '#FFFFFF'; }}
+                            >
+                              <SocialLucideIcon name={preset.icon} size={13} color={preset.bg_color} />
+                              <span>{preset.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-              <form onSubmit={handleSaveForm} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {/* Link Name */}
-                <div className="field">
-                  <label style={{ fontSize: '13px', fontWeight: 600 }}>লিংক নাম (Platform / Name)</label>
-                  <input
-                    type="text"
-                    placeholder="যেমন: Facebook, WhatsApp, IMO"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--rule)', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* Button Text (Bangla allowed) */}
-                <div className="field">
-                  <label style={{ fontSize: '13px', fontWeight: 600 }}>বাটন টেক্সট (Button Text / Label)</label>
-                  <input
-                    type="text"
-                    placeholder="যেমন: আমাদের ফেসবুক পেজ, হোয়াটসঅ্যাপে মেসেজ"
-                    value={formData.text}
-                    onChange={(e) => setFormData({ ...formData, text: e.target.value })}
-                    required
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--rule)', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* Link URL */}
-                <div className="field">
-                  <label style={{ fontSize: '13px', fontWeight: 600 }}>লিংক URL (Link Address)</label>
-                  <input
-                    type="text"
-                    placeholder="যেমন: https://facebook.com/myarot বা https://wa.me/88017..."
-                    value={formData.url}
-                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    required
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--rule)', fontSize: '13px' }}
-                  />
-                </div>
-
-                {/* React Icon Name */}
-                <div className="field">
-                  <label style={{ fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>আইকন নাম (React Lucide Icon)</span>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>যেমন: Facebook, MessageCircle, Phone, Send, XCircle</span>
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="text"
-                      placeholder="যেমন: Facebook, MessageCircle, Phone, Send, XCircle"
-                      value={formData.icon}
-                      onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                      required
-                      style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--rule)', fontSize: '13px' }}
-                    />
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '6px',
-                        background: formData.bg_color || '#006C4C',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}
-                      title="আইকন প্রিভিউ"
-                    >
-                      <SocialLucideIcon name={formData.icon} size={20} color={formData.text_color || '#ffffff'} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Color Selectors */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  {/* BG Color */}
-                  <div className="field">
-                    <label style={{ fontSize: '13px', fontWeight: 600 }}>বাটন ব্যাকগ্রাউন্ড কালার</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <input
-                        type="color"
-                        value={formData.bg_color}
-                        onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
-                        style={{ width: '38px', height: '38px', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: 0 }}
-                      />
+                    {/* Platform Name */}
+                    <div className="field" style={{ margin: 0 }}>
+                      <label style={{ fontWeight: 600, fontSize: '13px' }}>লিংক নাম (Platform / Name) *</label>
                       <input
                         type="text"
-                        value={formData.bg_color}
-                        onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
-                        style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--rule)', fontSize: '12px' }}
+                        placeholder="যেমন: Facebook, WhatsApp, IMO"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                        autoFocus
+                        style={{ padding: '9px 12px' }}
                       />
                     </div>
-                  </div>
 
-                  {/* Text Color */}
-                  <div className="field">
-                    <label style={{ fontSize: '13px', fontWeight: 600 }}>টেক্সট কালার</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <input
-                        type="color"
-                        value={formData.text_color}
-                        onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
-                        style={{ width: '38px', height: '38px', border: 'none', borderRadius: '6px', cursor: 'pointer', padding: 0 }}
-                      />
+                    {/* Button Text */}
+                    <div className="field" style={{ margin: 0 }}>
+                      <label style={{ fontWeight: 600, fontSize: '13px' }}>বাটন টেক্সট (Button Text / Label) *</label>
                       <input
                         type="text"
-                        value={formData.text_color}
-                        onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
-                        style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--rule)', fontSize: '12px' }}
+                        placeholder="যেমন: আমাদের ফেসবুক পেজ, হোয়াটসঅ্যাপে মেসেজ"
+                        value={formData.text}
+                        onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+                        required
+                        style={{ padding: '9px 12px' }}
                       />
+                    </div>
+
+                    {/* Link URL */}
+                    <div className="field" style={{ margin: 0 }}>
+                      <label style={{ fontWeight: 600, fontSize: '13px' }}>লিংক URL (Link Address) *</label>
+                      <input
+                        type="text"
+                        placeholder="যেমন: https://facebook.com/myarot বা https://wa.me/88017..."
+                        value={formData.url}
+                        onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                        required
+                        style={{ padding: '9px 12px' }}
+                      />
+                    </div>
+
+                    {/* Icon Name + Preview */}
+                    <div className="field" style={{ margin: 0 }}>
+                      <label style={{ fontWeight: 600, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>আইকন নাম (React Lucide Icon) *</span>
+                        <span style={{ fontSize: '11px', color: 'var(--muted)' }}>যেমন: MessageCircle, Facebook, PhoneCall, Send, XCircle</span>
+                      </label>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          placeholder="যেমন: Facebook, MessageCircle, PhoneCall, Send, XCircle"
+                          value={formData.icon}
+                          onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                          required
+                          style={{ flex: 1, padding: '9px 12px' }}
+                        />
+                        <div
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            border: '1px solid var(--rule)',
+                            borderRadius: 'var(--radius-md)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: formData.bg_color || '#006C4C',
+                            color: formData.text_color || '#ffffff',
+                            flexShrink: 0,
+                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)'
+                          }}
+                          title="আইকন প্রিভিউ"
+                        >
+                          <SocialLucideIcon name={formData.icon} size={22} color={formData.text_color || '#ffffff'} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Color Selectors */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="field" style={{ margin: 0 }}>
+                        <label style={{ fontWeight: 600, fontSize: '13px' }}>বাটন ব্যাকগ্রাউন্ড কালার</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="color"
+                            value={formData.bg_color}
+                            onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
+                            style={{ width: '40px', height: '40px', border: '1px solid var(--rule)', borderRadius: 'var(--radius-md)', cursor: 'pointer', padding: '2px', background: '#FFFFFF' }}
+                          />
+                          <input
+                            type="text"
+                            value={formData.bg_color}
+                            onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
+                            style={{ flex: 1, padding: '9px 12px', fontSize: '13px', fontFamily: 'monospace' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="field" style={{ margin: 0 }}>
+                        <label style={{ fontWeight: 600, fontSize: '13px' }}>টেক্সট ও আইকন কালার</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="color"
+                            value={formData.text_color}
+                            onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
+                            style={{ width: '40px', height: '40px', border: '1px solid var(--rule)', borderRadius: 'var(--radius-md)', cursor: 'pointer', padding: '2px', background: '#FFFFFF' }}
+                          />
+                          <input
+                            type="text"
+                            value={formData.text_color}
+                            onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
+                            style={{ flex: 1, padding: '9px 12px', fontSize: '13px', fontFamily: 'monospace' }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Submit / Cancel */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <div className="admin-modal-footer">
                   <button
                     type="button"
-                    className="admin-btn secondary"
+                    className="admin-btn"
                     onClick={() => setIsFormOpen(false)}
-                    style={{ padding: '8px 16px', fontSize: '13px' }}
                   >
                     বাতিল
                   </button>
-                  <button
+                  <motion.button
                     type="submit"
                     className="admin-btn primary"
-                    style={{ padding: '8px 20px', fontSize: '13px', fontWeight: 700 }}
+                    style={{ padding: '8px 22px', fontWeight: 700 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    {editingId ? 'আপডেট করুন' : 'যুক্ত করুন'}
-                  </button>
+                    {editingId ? 'আপডেট করুন' : 'সংরক্ষণ করুন'}
+                  </motion.button>
                 </div>
               </form>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

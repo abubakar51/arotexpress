@@ -4,12 +4,23 @@ import { motion } from 'motion/react';
 import { useStoreData } from '../context/StoreDataContext';
 import SocialLucideIcon from './SocialLucideIcon.jsx';
 
-export default function SocialButtons({ forceMode = null, className = '' }) {
+export default function SocialButtons({ variant = 'inline', className = '' }) {
   const { settings = {} } = useStoreData();
 
-  // Settings
+  // Master switch check
   const isEnabled = settings.socials_enabled !== false;
-  const positionMode = forceMode || settings.socials_position || 'inline'; // 'inline' | 'fixed'
+  const configuredPosition = settings.socials_position === 'fixed' ? 'fixed' : 'inline';
+
+  // Strict Mutual Exclusion Check:
+  // - If component is placed for 'fixed' display, only render when admin selected 'fixed'.
+  // - If component is placed for 'inline' display, only render when admin selected 'inline'.
+  if (variant === 'fixed' && configuredPosition !== 'fixed') {
+    return null;
+  }
+  if (variant === 'inline' && configuredPosition === 'fixed') {
+    return null;
+  }
+
   const rawLinks = Array.isArray(settings.social_links) ? settings.social_links : [];
 
   // Filter active links and cap at 5
@@ -21,8 +32,8 @@ export default function SocialButtons({ forceMode = null, className = '' }) {
     return null;
   }
 
-  // FIXED FLOATING MODE
-  if (positionMode === 'fixed') {
+  // 1. FIXED FLOATING MODE (Floating on the right side of the screen)
+  if (variant === 'fixed') {
     return (
       <aside
         aria-label="সোশ্যাল মিডিয়া লিংকস"
@@ -83,7 +94,7 @@ export default function SocialButtons({ forceMode = null, className = '' }) {
     );
   }
 
-  // INLINE MODE (Vertical list next to Hero Package Box)
+  // 2. INLINE MODE (Vertical list placed right next to Hero Package Box)
   return (
     <div
       className={`hero-social-buttons-vertical ${className}`}
