@@ -38,17 +38,6 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
       <aside
         aria-label="সোশ্যাল মিডিয়া লিংকস"
         className={`social-buttons-fixed ${className}`}
-        style={{
-          position: 'fixed',
-          right: '16px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 85,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          pointerEvents: 'auto'
-        }}
       >
         {activeLinks.map((link, idx) => {
           const bgColor = link.bg_color || '#006C4C';
@@ -64,29 +53,16 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
               initial={{ opacity: 0, x: 25 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.08, duration: 0.3 }}
-              whileHover={{ scale: 1.05, x: -4 }}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.93 }}
+              className="social-btn-fixed"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 14px',
-                borderRadius: '50px',
                 background: bgColor,
-                color: textColor,
-                textDecoration: 'none',
-                fontWeight: '600',
-                fontSize: '12.5px',
-                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.18)',
-                backdropFilter: 'blur(4px)',
-                transition: 'box-shadow 0.2s ease, transform 0.2s ease',
-                whiteSpace: 'nowrap',
-                border: '1px solid rgba(255, 255, 255, 0.2)'
+                color: textColor
               }}
               title={label}
             >
-              <SocialLucideIcon name={link.icon || 'Share2'} size={16} color={textColor} />
-              <span>{label}</span>
+              <SocialLucideIcon name={link.icon || 'Share2'} size={17} color={textColor} />
+              <span className="social-btn-fixed-text">{label}</span>
             </motion.a>
           );
         })}
@@ -98,7 +74,7 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
   return (
     <div className={`hero-social-inline-container ${className}`}>
       <div className="hero-social-inline-title">
-        <span>ম্যানুয়াল অর্ডার</span>
+        <span>কানেক্ট থাকুন</span>
       </div>
 
       {activeLinks.map((link, idx) => {

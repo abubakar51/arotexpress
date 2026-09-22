@@ -581,11 +581,11 @@ header, .main-app-header {
 /* HERO SECTION (M3 BANNER & RATE LEDGER)            */
 /* ================================================= */
 .hero {
-  max-width: 1260px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 32px 20px 24px;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: 1.15fr 0.95fr;
   gap: 28px;
   align-items: center;
   animation: fadeUp 0.4s var(--ease);
@@ -593,29 +593,29 @@ header, .main-app-header {
 
 .hero-package-box {
   width: 100%;
-  max-width: 460px;
-  min-width: 0;
-  flex: 1;
+  max-width: 520px;
+  justify-self: end;
 }
 
 .hero-right-cluster {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  position: relative;
   width: 100%;
-  max-width: 100%;
+  max-width: 520px;
   justify-self: end;
-  justify-content: flex-end;
 }
 
 .hero-social-inline-container {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 7px;
   width: max-content;
   max-width: max-content;
-  flex-shrink: 0;
+  z-index: 10;
   pointer-events: auto;
 }
 
@@ -655,6 +655,44 @@ header, .main-app-header {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
 }
 
+/* Fixed Floating Social Links */
+.social-buttons-fixed {
+  position: fixed;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 85;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.social-btn-fixed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 50px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 12.5px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(4px);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.social-btn-fixed:hover {
+  transform: scale(1.05) translateX(-4px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.social-btn-fixed-text {
+  display: inline-block;
+}
+
 @media (max-width: 960px) {
   .hero {
     grid-template-columns: 1fr;
@@ -663,26 +701,43 @@ header, .main-app-header {
   }
   .hero-package-box {
     justify-self: center;
-    max-width: 480px;
+    max-width: 520px;
   }
   .hero-right-cluster {
     justify-self: center;
-    justify-content: center;
     margin: 0 auto;
-    max-width: 620px;
   }
 }
 
 @media (max-width: 680px) {
-  .hero-right-cluster {
-    flex-direction: column;
+  /* Mobile Floating Social Links: Icon only, circular buttons */
+  .social-buttons-fixed {
+    right: 12px;
+    gap: 8px;
+  }
+
+  .social-btn-fixed {
+    padding: 0;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    justify-content: center;
     align-items: center;
-    width: 100%;
-    max-width: 480px;
+    gap: 0;
+  }
+
+  .social-btn-fixed:hover {
+    transform: scale(1.08);
+  }
+
+  .social-btn-fixed-text {
+    display: none !important;
   }
 
   .hero-social-inline-container {
-    margin-top: 6px;
+    position: static;
+    transform: none;
+    margin-top: 14px;
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
