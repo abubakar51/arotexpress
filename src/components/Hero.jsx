@@ -51,18 +51,8 @@ export default function Hero({ settings, categories = [], onExploreClick }) {
         </motion.button>
       </motion.div>
 
-      {/* Right Column: Hero Package Box + Vertical Social Buttons */}
-      <div
-        className="hero-right-cluster"
-        style={{
-          display: 'flex',
-          alignItems: 'stretch',
-          gap: '12px',
-          width: '100%',
-          justifyContent: 'flex-end',
-          minWidth: 0
-        }}
-      >
+      {/* Right Column: Hero Package Box + Inline Social Buttons */}
+      <div className="hero-right-cluster">
         <HeroPackageBox />
         <SocialButtons variant="inline" />
       </div>

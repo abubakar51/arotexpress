@@ -94,33 +94,11 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
     );
   }
 
-  // 2. INLINE MODE (Vertical list placed right next to Hero Package Box)
+  // 2. INLINE MODE (Absolute beside Package Box on desktop/tablet without compressing it; stacks below on mobile)
   return (
-    <div
-      className={`hero-social-buttons-vertical ${className}`}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        justifyContent: 'center',
-        alignSelf: 'stretch',
-        minWidth: '150px'
-      }}
-    >
-      <div
-        style={{
-          fontSize: '11px',
-          fontWeight: 700,
-          color: 'var(--muted)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.04em',
-          marginBottom: '2px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}
-      >
-        <span>কানেক্ট থাকুন</span>
+    <div className={`hero-social-inline-container ${className}`}>
+      <div className="hero-social-inline-title">
+        <span>ম্যানুয়াল অর্ডার</span>
       </div>
 
       {activeLinks.map((link, idx) => {
@@ -134,22 +112,12 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
             href={link.url || '#'}
             target="_blank"
             rel="noopener noreferrer"
-            whileHover={{ scale: 1.03, y: -1 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.04, y: -1 }}
+            whileTap={{ scale: 0.96 }}
+            className="hero-social-btn-inline"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              borderRadius: '8px',
               background: bgColor,
-              color: textColor,
-              textDecoration: 'none',
-              fontWeight: '600',
-              fontSize: '12px',
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
-              transition: 'all 0.18s ease',
-              lineHeight: 1.2
+              color: textColor
             }}
             title={label}
           >
@@ -158,18 +126,16 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '22px',
-                height: '22px',
+                width: '20px',
+                height: '20px',
                 borderRadius: '4px',
-                background: 'rgba(255, 255, 255, 0.15)',
+                background: 'rgba(255, 255, 255, 0.18)',
                 flexShrink: 0
               }}
             >
-              <SocialLucideIcon name={link.icon || 'Share2'} size={14} color={textColor} />
+              <SocialLucideIcon name={link.icon || 'Share2'} size={13} color={textColor} />
             </div>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {label}
-            </span>
+            <span>{label}</span>
           </motion.a>
         );
       })}
