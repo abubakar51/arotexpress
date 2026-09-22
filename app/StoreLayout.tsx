@@ -60,7 +60,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       />
       <AuthModal />
       <ToastContainer />
-      <SocialButtons forceMode="fixed" />
+      <SocialButtons variant="fixed" />
 
       <footer>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '12px' }}>
