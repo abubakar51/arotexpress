@@ -6,6 +6,7 @@ import CartDrawer from '@/src/components/CartDrawer.jsx';
 import AuthModal from '@/src/components/AuthModal.jsx';
 import ToastContainer from '@/src/components/ToastContainer.jsx';
 import ScrollManager from '@/src/components/ScrollManager';
+import SocialButtons from '@/src/components/SocialButtons.jsx';
 import { useStoreData } from '@/src/context/StoreDataContext';
 
 export default function StoreLayout({ children }: { children: React.ReactNode }) {
@@ -59,6 +60,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       />
       <AuthModal />
       <ToastContainer />
+      <SocialButtons forceMode="fixed" />
 
       <footer>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '12px' }}>

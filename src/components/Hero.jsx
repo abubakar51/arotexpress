@@ -3,6 +3,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowDown } from 'lucide-react';
 import HeroPackageBox from './HeroPackageBox.jsx';
+import SocialButtons from './SocialButtons.jsx';
 
 export default function Hero({ settings, categories = [], onExploreClick }) {
   return (
@@ -50,8 +51,23 @@ export default function Hero({ settings, categories = [], onExploreClick }) {
         </motion.button>
       </motion.div>
 
-      {/* Right Column: Hero Package Box (10 products, 2 sides) */}
-      <HeroPackageBox />
+      {/* Right Column: Hero Package Box + Vertical Social Buttons */}
+      <div
+        className="hero-right-cluster"
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          gap: '12px',
+          width: '100%',
+          justifyContent: 'flex-end',
+          minWidth: 0
+        }}
+      >
+        <HeroPackageBox />
+        {settings?.socials_position !== 'fixed' && (
+          <SocialButtons forceMode="inline" />
+        )}
+      </div>
     </motion.section>
   );
 }

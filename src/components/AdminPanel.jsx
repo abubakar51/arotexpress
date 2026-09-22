@@ -38,7 +38,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  Share2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
@@ -53,6 +54,7 @@ import AdminFinanceTracker from './AdminFinanceTracker.jsx';
 import AdminBulkProducts from './AdminBulkProducts.jsx';
 import AdminPackageOrders from './AdminPackageOrders.jsx';
 import AdminPackageManagement from './AdminPackageManagement.jsx';
+import AdminSocialLinks from './AdminSocialLinks.jsx';
 import LowStockBanner from './LowStockBanner.jsx';
 import CustomerInvoiceModal from './CustomerInvoiceModal.jsx';
 import PosReceiptModal from './PosReceiptModal.jsx';
@@ -72,8 +74,12 @@ export default function AdminPanel({ onNavigateHome }) {
   const pathname = usePathname() || '/admin';
   const getTabFromPath = (path) => {
     if (!path) return 'dashboard';
-    const parts = path.split('/');
-    return parts[2] && parts[2] !== '' ? parts[2] : 'dashboard';
+    const clean = path.split('?')[0];
+    const parts = clean.split('/').filter(Boolean);
+    if (parts.length >= 2 && parts[0] === 'admin') {
+      return parts[1];
+    }
+    return 'dashboard';
   };
 
   const [adminTab, setAdminTabState] = useState(() => getTabFromPath(pathname));
@@ -100,7 +106,7 @@ export default function AdminPanel({ onNavigateHome }) {
     setAdminTabState(tab);
     const newPath = tab === 'dashboard' ? '/admin' : `/admin/${tab}`;
     if (typeof window !== 'undefined' && window.location.pathname !== newPath) {
-      window.history.pushState(null, '', newPath);
+      window.history.pushState({ tab }, '', newPath);
     }
   };
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1011,79 +1017,77 @@ export default function AdminPanel({ onNavigateHome }) {
 
   if (!isAdmin) {
     return (
-      <ProtectedRoute isAllowed={isAdmin} redirectPath="/admin">
-        <div className="section-wrap" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <motion.div
-            className="auth-modal"
-            style={{ maxWidth: '420px', margin: '40px auto' }}
-            initial={{ opacity: 0, scale: 0.92, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+      <div className="section-wrap" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <motion.div
+          className="auth-modal"
+          style={{ maxWidth: '420px', margin: '40px auto' }}
+          initial={{ opacity: 0, scale: 0.92, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        >
+        <div className="modal-header">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Lock size={18} />
+            <span>আড়ৎ এক্সপ্রেস — অ্যাডমিন লগইন</span>
+          </h3>
+          <button
+            type="button"
+            className="close-modal-btn"
+            onClick={onNavigateHome}
+            aria-label="বন্ধ করুন"
           >
-          <div className="modal-header">
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Lock size={18} />
-              <span>আড়ৎ এক্সপ্রেস — অ্যাডমিন লগইন</span>
-            </h3>
-            <button
-              type="button"
-              className="close-modal-btn"
-              onClick={onNavigateHome}
-              aria-label="বন্ধ করুন"
+            <X size={18} />
+          </button>
+        </div>
+        <div className="modal-body">
+          <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
+            শুধুমাত্র অনুমোদিত অ্যাডমিনের জন্য সংরক্ষিত পোর্টাল।
+          </p>
+          {loginError && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ background: '#ffeded', border: '1px solid #FECDD3', color: 'var(--danger)', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '13px', marginBottom: '14px', fontWeight: 500 }}
             >
-              <X size={18} />
-            </button>
-          </div>
-          <div className="modal-body">
-            <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '14px' }}>
-              শুধুমাত্র অনুমোদিত অ্যাডমিনের জন্য সংরক্ষিত পোর্টাল।
-            </p>
-            {loginError && (
-              <motion.div
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                style={{ background: '#ffeded', border: '1px solid #FECDD3', color: 'var(--danger)', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '13px', marginBottom: '14px', fontWeight: 500 }}
-              >
-                {loginError}
-              </motion.div>
-            )}
-            <form onSubmit={handleAdminLogin}>
-              <div className="field">
-                <label>অ্যাডমিন ইউজারনেম</label>
-                <input
-                  type="text"
-                  placeholder="admin"
-                  value={adminUsername}
-                  onChange={(e) => setAdminUsername(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label>অ্যাডমিন পাসওয়ার্ড</label>
-                <input
-                  type="password"
-                  placeholder="পাসওয়ার্ড দিন"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <motion.button
-                type="submit"
-                className="submit-btn"
-                disabled={loginLoading}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {loginLoading ? 'যাচাই করা হচ্ছে...' : 'অ্যাডমিন লগইন'}
-              </motion.button>
-            </form>
-          </div>
-        </motion.div>
-      </div>
-      </ProtectedRoute>
-    );
-  }
+              {loginError}
+            </motion.div>
+          )}
+          <form onSubmit={handleAdminLogin}>
+            <div className="field">
+              <label>অ্যাডমিন ইউজারনেম</label>
+              <input
+                type="text"
+                placeholder="admin"
+                value={adminUsername}
+                onChange={(e) => setAdminUsername(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>অ্যাডমিন পাসওয়ার্ড</label>
+              <input
+                type="password"
+                placeholder="পাসওয়ার্ড দিন"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                required
+              />
+            </div>
+            <motion.button
+              type="submit"
+              className="submit-btn"
+              disabled={loginLoading}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {loginLoading ? 'যাচাই করা হচ্ছে...' : 'অ্যাডমিন লগইন'}
+            </motion.button>
+          </form>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
   // Admin Dashboard Render
   return (
@@ -1223,6 +1227,15 @@ export default function AdminPanel({ onNavigateHome }) {
           >
             <Sliders size={16} />
             <span>সাইট সেটিংস</span>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            className={`admin-nav-item ${adminTab === 'social_links' ? 'active' : ''}`}
+            onClick={() => { setAdminTab('social_links'); setSidebarOpen(false); window.scrollTo(0, 0); }}
+          >
+            <Share2 size={16} />
+            <span>সোশ্যাল লিংকস</span>
           </motion.button>
 
           <motion.button
@@ -3290,6 +3303,11 @@ export default function AdminPanel({ onNavigateHome }) {
               </button>
             </form>
           </div>
+        )}
+
+        {/* 5.5. SOCIAL LINKS MANAGEMENT TAB */}
+        {adminTab === 'social_links' && (
+          <AdminSocialLinks adminToken={adminToken} />
         )}
 
         {/* 6. USERS TAB (Admins completely separated, shows registered customers only) */}
