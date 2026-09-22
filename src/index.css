@@ -581,11 +581,11 @@ header, .main-app-header {
 /* HERO SECTION (M3 BANNER & RATE LEDGER)            */
 /* ================================================= */
 .hero {
-  max-width: 1160px;
+  max-width: 1260px;
   margin: 0 auto;
   padding: 32px 20px 24px;
   display: grid;
-  grid-template-columns: 1.15fr 0.95fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   gap: 28px;
   align-items: center;
   animation: fadeUp 0.4s var(--ease);
@@ -593,29 +593,29 @@ header, .main-app-header {
 
 .hero-package-box {
   width: 100%;
-  max-width: 520px;
-  justify-self: end;
+  max-width: 460px;
+  min-width: 0;
+  flex: 1;
 }
 
 .hero-right-cluster {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  max-width: 520px;
+  max-width: 100%;
   justify-self: end;
+  justify-content: flex-end;
 }
 
 .hero-social-inline-container {
-  position: absolute;
-  left: calc(100% + 12px);
-  top: 50%;
-  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 7px;
   width: max-content;
   max-width: max-content;
-  z-index: 10;
+  flex-shrink: 0;
   pointer-events: auto;
 }
 
@@ -663,19 +663,26 @@ header, .main-app-header {
   }
   .hero-package-box {
     justify-self: center;
-    max-width: 520px;
+    max-width: 480px;
   }
   .hero-right-cluster {
     justify-self: center;
+    justify-content: center;
     margin: 0 auto;
+    max-width: 620px;
   }
 }
 
 @media (max-width: 680px) {
+  .hero-right-cluster {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+  }
+
   .hero-social-inline-container {
-    position: static;
-    transform: none;
-    margin-top: 14px;
+    margin-top: 6px;
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
