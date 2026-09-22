@@ -29,7 +29,8 @@ import {
   ChevronDown,
   Bike,
   Plus,
-  UserCheck
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import { toBengaliNumber, formatStockDisplay, normalizeOrderStatus, getOrderStatusBn } from '../utils/bengali.js';
 import { copyToClipboard } from '../utils/clipboard.js';
@@ -466,12 +467,32 @@ export default function AdminOrders({
                       <button
                         type="button"
                         className="admin-btn secondary"
-                        style={{ padding: '2px 8px', fontSize: '11px' }}
+                        style={{ padding: '2px 8px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
                         onClick={() => setRiderDetailsModal(o)}
                       >
-                        বিস্তারিত
+                        {normalizeOrderStatus(o.status) === 'delivered' && <Lock size={10} color="#64748b" />}
+                        <span>বিস্তারিত</span>
                       </button>
                     </div>
+                  ) : normalizeOrderStatus(o.status) === 'delivered' ? (
+                    <span
+                      style={{
+                        padding: '2px 7px',
+                        fontSize: '11px',
+                        color: '#64748b',
+                        background: '#f1f5f9',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '4px',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="অর্ডারটি ইতিমধ্যে ডেলিভার্ড হয়েছে, তাই রাইডার অ্যাসাইন বন্ধ"
+                    >
+                      <Lock size={11} color="#94a3b8" />
+                      <span>অ্যাসাইন বন্ধ</span>
+                    </span>
                   ) : (
                     <button
                       type="button"
@@ -665,11 +686,34 @@ export default function AdminOrders({
                             fontWeight: 700
                           }}
                           onClick={() => setRiderDetailsModal(o)}
-                          title="ডেলিভারিম্যান বিস্তারিত ও পরিবর্তন"
+                          title={normalizeOrderStatus(o.status) === 'delivered' ? 'ডেলিভারিম্যান তথ্য (লকড - ডেলিভার্ড সম্পন্ন)' : 'ডেলিভারিম্যান বিস্তারিত ও পরিবর্তন'}
                         >
                           <Bike size={13} color="#15803d" />
                           <span>{o.delivery_rider_name}</span>
+                          {normalizeOrderStatus(o.status) === 'delivered' && (
+                            <Lock size={11} color="#166534" style={{ marginLeft: '2px' }} />
+                          )}
                         </button>
+                      ) : normalizeOrderStatus(o.status) === 'delivered' ? (
+                        <span
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '11.5px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            border: '1px solid #cbd5e1',
+                            background: '#f8fafc',
+                            color: '#64748b',
+                            borderRadius: '4px',
+                            fontWeight: 600,
+                            cursor: 'not-allowed'
+                          }}
+                          title="অর্ডারটি ইতিমধ্যে ডেলিভার্ড হয়েছে, তাই রাইডার অ্যাসাইন করা যাবে না"
+                        >
+                          <Lock size={12} color="#94a3b8" />
+                          <span>রাইডার ছাড়া ডেলিভার্ড</span>
+                        </span>
                       ) : (
                         <button
                           type="button"
@@ -1016,29 +1060,38 @@ export default function AdminOrders({
                       <strong>নোট:</strong> {riderDetailsModal.delivery_note}
                     </div>
                   )}
+
+                  {normalizeOrderStatus(riderDetailsModal.status) === 'delivered' && (
+                    <div style={{ marginTop: '12px', padding: '8px 10px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Lock size={14} color="#64748b" />
+                      <span>অর্ডারটি ইতিমধ্যে <strong>ডেলিভার্ড</strong> সম্পন্ন হয়েছে। তাই রাইডার পরিবর্তন করা যাবে না।</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="admin-modal-footer">
-                <button
-                  type="button"
-                  className="admin-btn secondary"
-                  onClick={() => {
-                    const ord = riderDetailsModal;
-                    setRiderDetailsModal(null);
-                    setAssignRiderModalOrder(ord);
-                    setSelectedRiderId(ord.delivery_rider_id || '');
-                    setDeliveryNote(ord.delivery_note || '');
-                  }}
-                >
-                  রাইডার পরিবর্তন
-                </button>
+                {normalizeOrderStatus(riderDetailsModal.status) !== 'delivered' && (
+                  <button
+                    type="button"
+                    className="admin-btn secondary"
+                    onClick={() => {
+                      const ord = riderDetailsModal;
+                      setRiderDetailsModal(null);
+                      setAssignRiderModalOrder(ord);
+                      setSelectedRiderId(ord.delivery_rider_id || '');
+                      setDeliveryNote(ord.delivery_note || '');
+                    }}
+                  >
+                    রাইডার পরিবর্তন
+                  </button>
+                )}
                 <button
                   type="button"
                   className="admin-btn"
                   onClick={() => setRiderDetailsModal(null)}
                 >
-                  বন্ধ করুন
+                  {normalizeOrderStatus(riderDetailsModal.status) === 'delivered' ? 'ঠিক আছে' : 'বন্ধ করুন'}
                 </button>
               </div>
             </motion.div>

@@ -1799,11 +1799,14 @@ export class DBManager {
     const order = this.data.orders.find(o => o.id === orderId);
     if (order) {
       const oldStatus = order.status;
+      const isCurrentlyDelivered = oldStatus === 'delivered' || oldStatus === 'ডেলিভার্ড' || oldStatus === 'সম্পন্ন';
+
       if (status) {
         order.status = status;
       }
       
-      if (riderInfo) {
+      // If already delivered, rider CANNOT be assigned or changed
+      if (!isCurrentlyDelivered && riderInfo) {
         if (riderInfo.rider_id !== undefined) {
           order.delivery_rider_id = riderInfo.rider_id || null;
           if (riderInfo.rider_id) {
@@ -1932,6 +1935,11 @@ export class DBManager {
   static assignRiderToOrder(orderId: number, riderId: number) {
     const order = this.data.orders.find(o => o.id === orderId);
     if (!order) return null;
+    const isDelivered = order.status === 'delivered' || order.status === 'ডেলিভার্ড' || order.status === 'সম্পন্ন';
+    if (isDelivered) {
+      // Delivered orders cannot have riders assigned or changed
+      return null;
+    }
     const rider = this.data.delivery_riders.find(r => r.id === riderId);
     if (!rider) return null;
 
@@ -2607,8 +2615,15 @@ export class DBManager {
     if (!this.data.package_orders) return null;
     const order = this.data.package_orders.find(o => o.id === orderId);
     if (order) {
-      order.status = status;
-      if (riderInfo) {
+      const oldStatus = order.status;
+      const isCurrentlyDelivered = oldStatus === 'delivered' || oldStatus === 'ডেলিভার্ড' || oldStatus === 'সম্পন্ন';
+
+      if (status) {
+        order.status = status;
+      }
+
+      // If already delivered, rider CANNOT be assigned or changed
+      if (!isCurrentlyDelivered && riderInfo) {
         if (riderInfo.rider_id !== undefined) order.delivery_rider_id = riderInfo.rider_id;
         if (riderInfo.rider_name !== undefined) order.delivery_rider_name = riderInfo.rider_name;
         if (riderInfo.rider_phone !== undefined) order.delivery_rider_phone = riderInfo.rider_phone;
@@ -2623,7 +2638,7 @@ export class DBManager {
       if (isPgConnected) {
         pool.query(
           `UPDATE package_orders SET status = $1, delivery_rider_id = $2, delivery_rider_name = $3, delivery_rider_phone = $4, delivery_rider_vehicle = $5, delivery_note = $6, delivered_at = $7, payment_status = $8 WHERE id = $9`,
-          [order.status, order.delivery_rider_id || null, order.delivery_rider_name || null, order.delivery_rider_phone || null, order.delivery_rider_vehicle || null, order.delivery_note || null, order.delivered_at || null, order.payment_status, order.id]
+          [order.status, order.delivery_rider_id || null, order.delivery_rider_name || null, order.delivery_rider_phone || null, order.delivery_rider_phone || null, order.delivery_note || null, order.delivered_at || null, order.payment_status, order.id]
         ).catch((e: any) => console.warn('PG sync error (package order status):', e.message));
       }
       return order;
@@ -2634,8 +2649,14 @@ export class DBManager {
   static async assignRiderToPackageOrder(orderId: number, riderId: number) {
     if (!this.data.package_orders) return null;
     const order = this.data.package_orders.find(o => o.id === orderId);
+    if (!order) return null;
+    const isDelivered = order.status === 'delivered' || order.status === 'ডেলিভার্ড' || order.status === 'সম্পন্ন';
+    if (isDelivered) {
+      // Delivered package orders cannot have riders assigned or changed
+      return null;
+    }
     const rider = (this.data.delivery_riders || []).find(r => r.id === riderId);
-    if (!order || !rider) return null;
+    if (!rider) return null;
 
     order.delivery_rider_id = rider.id;
     order.delivery_rider_name = rider.name;
