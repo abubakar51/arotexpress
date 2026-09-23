@@ -7,23 +7,30 @@ import SocialLucideIcon from './SocialLucideIcon.jsx';
 export default function SocialButtons({ variant = 'inline', className = '' }) {
   const { settings = {} } = useStoreData();
 
-  // Master switch check
+  // Master switch
   const isEnabled = settings.socials_enabled !== false;
   const configuredPosition = settings.socials_position === 'fixed' ? 'fixed' : 'inline';
+  const displayMode = settings.socials_display_mode || 'both'; // 'both' | 'icon_only' | 'text_only'
+  const mobileBehavior = settings.socials_mobile_behavior || 'auto_floating'; // 'auto_floating' | 'follow_position' | 'hidden'
+  const shape = settings.socials_shape || (configuredPosition === 'fixed' ? 'pill' : 'rounded'); // 'pill' | 'rounded' | 'square'
+  const size = settings.socials_size || 'md'; // 'sm' | 'md' | 'lg'
 
-  // Strict Mutual Exclusion Check:
-  // - If component is placed for 'fixed' display, only render when admin selected 'fixed'.
-  // - If component is placed for 'inline' display, only render when admin selected 'inline'.
-  if (variant === 'fixed' && configuredPosition !== 'fixed') {
-    return null;
+  // Variant routing:
+  // When mobileBehavior is 'auto_floating':
+  // - Fixed floating component is mounted for mobile screens even if position is inline.
+  if (variant === 'fixed') {
+    if (configuredPosition !== 'fixed' && mobileBehavior !== 'auto_floating') {
+      return null;
+    }
   }
-  if (variant === 'inline' && configuredPosition === 'fixed') {
-    return null;
+
+  if (variant === 'inline') {
+    if (configuredPosition === 'fixed') {
+      return null;
+    }
   }
 
   const rawLinks = Array.isArray(settings.social_links) ? settings.social_links : [];
-
-  // Filter active links and cap at 5
   const activeLinks = rawLinks
     .filter((link) => link && link.is_active !== false && (link.url || link.text || link.name))
     .slice(0, 5);
@@ -32,12 +39,26 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
     return null;
   }
 
-  // 1. FIXED FLOATING MODE (Floating on the right side of the screen)
+  const iconSizes = {
+    sm: 13,
+    md: 16,
+    lg: 19
+  };
+  const iconPixelSize = iconSizes[size] || 16;
+
+  // 1. FIXED FLOATING VARIANT
   if (variant === 'fixed') {
+    const isDesktopHidden = configuredPosition !== 'fixed'; // Only rendered for mobile auto-floating on small screens
+    const mobileClasses = [
+      mobileBehavior === 'hidden' ? 'mobile-hide' : '',
+      mobileBehavior === 'auto_floating' ? 'mobile-auto-floating' : '',
+      isDesktopHidden ? 'desktop-hide' : ''
+    ].filter(Boolean).join(' ');
+
     return (
       <aside
         aria-label="সোশ্যাল মিডিয়া লিংকস"
-        className={`social-buttons-fixed ${className}`}
+        className={`social-buttons-fixed ${mobileClasses} ${className}`}
       >
         {activeLinks.map((link, idx) => {
           const bgColor = link.bg_color || '#006C4C';
@@ -54,15 +75,19 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.08, duration: 0.3 }}
               whileTap={{ scale: 0.93 }}
-              className="social-btn-fixed"
+              className={`social-btn-fixed shape-${shape} size-${size} mode-${displayMode}`}
               style={{
                 background: bgColor,
                 color: textColor
               }}
               title={label}
             >
-              <SocialLucideIcon name={link.icon || 'Share2'} size={17} color={textColor} />
-              <span className="social-btn-fixed-text">{label}</span>
+              {displayMode !== 'text_only' && (
+                <SocialLucideIcon name={link.icon || 'FaShareNodes'} size={iconPixelSize} color={textColor} />
+              )}
+              {displayMode !== 'icon_only' && (
+                <span className="social-btn-fixed-text">{label}</span>
+              )}
             </motion.a>
           );
         })}
@@ -70,9 +95,13 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
     );
   }
 
-  // 2. INLINE MODE (Absolute beside Package Box on desktop/tablet without compressing it; stacks below on mobile)
+  // 2. INLINE VARIANT (Beside Hero Package Box)
+  const inlineMobileClass = (mobileBehavior === 'auto_floating' || mobileBehavior === 'hidden')
+    ? 'mobile-hide-inline'
+    : '';
+
   return (
-    <div className={`hero-social-inline-container ${className}`}>
+    <div className={`hero-social-inline-container ${inlineMobileClass} ${className}`}>
       <div className="hero-social-inline-title">
         <span>কানেক্ট থাকুন</span>
       </div>
@@ -90,28 +119,32 @@ export default function SocialButtons({ variant = 'inline', className = '' }) {
             rel="noopener noreferrer"
             whileHover={{ scale: 1.04, y: -1 }}
             whileTap={{ scale: 0.96 }}
-            className="hero-social-btn-inline"
+            className={`hero-social-btn-inline shape-${shape} size-${size} mode-${displayMode}`}
             style={{
               background: bgColor,
               color: textColor
             }}
             title={label}
           >
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '20px',
-                height: '20px',
-                borderRadius: '4px',
-                background: 'rgba(255, 255, 255, 0.18)',
-                flexShrink: 0
-              }}
-            >
-              <SocialLucideIcon name={link.icon || 'Share2'} size={13} color={textColor} />
-            </div>
-            <span>{label}</span>
+            {displayMode !== 'text_only' && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: displayMode === 'icon_only' ? 'auto' : '20px',
+                  height: displayMode === 'icon_only' ? 'auto' : '20px',
+                  borderRadius: '4px',
+                  background: displayMode === 'icon_only' ? 'transparent' : 'rgba(255, 255, 255, 0.18)',
+                  flexShrink: 0
+                }}
+              >
+                <SocialLucideIcon name={link.icon || 'FaShareNodes'} size={iconPixelSize} color={textColor} />
+              </div>
+            )}
+            {displayMode !== 'icon_only' && (
+              <span>{label}</span>
+            )}
           </motion.a>
         );
       })}
